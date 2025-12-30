@@ -12,8 +12,8 @@
   // Ensure these files exist in your 'audio/' folder on GitHub
   const TRACKS = [
     { id: 'rain', name: 'Tropical Rain', file: 'audio/Jomon Grove - The Mini Vandals.mp3', tags: ['tropical'] },
-    { id: 'fire', name: 'Cozy Fireplace', file: 'audio/fire.mp3', tags: ['winter', 'north_winter', 'south_winter'] },
-    { id: 'nature', name: 'Forest Birds', file: 'audio/nature.mp3', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
+    { id: 'fire', name: 'Cozy Fireplace', file: 'audio/By the Fireplace - TrackTribe.mp3', tags: ['winter', 'north_winter', 'south_winter'] },
+    { id: 'nature', name: 'Forest Birds', file: 'audio/totality - Lish Grooves.mp3', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
     // Add more here easily:
     // { id: 'jazz', name: 'Smooth Jazz', file: 'audio/jazz.mp3', tags: ['night'] }
   ];
