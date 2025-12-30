@@ -1,15 +1,9 @@
 /* 
-   MINUTE MUSE - CURATOR EDITION (JSON)
-   Features:
-   - Loads from images.json (No API Key needed here!)
-   - Admin Mode (Click Season Badge 5x)
-   - Dynamic Music Menu
-   - Journal & Zen Mode
+   MINUTE MUSE - CURATOR EDITION (Robust Timer Fix)
 */
 
 (() => {
   // 🎵 PLAYLIST CONFIGURATION
-  // Ensure these files exist in your 'audio/' folder on GitHub
   const TRACKS = [
     { id: 'rain', name: 'Tropical Rain', file: 'audio/Jomon Grove - The Mini Vandals.mp3', tags: ['tropical'] },
     { id: 'fire', name: 'Cozy Fireplace', file: 'audio/By the Fireplace - TrackTribe.mp3', tags: ['winter', 'north_winter', 'south_winter'] },
@@ -27,8 +21,11 @@
   const elSeasonBadge = document.getElementById('season-badge');
   const elPhotoCredit = document.getElementById('photo-credit');
   const elRain = document.getElementById('rain-effect');
+  
+  // The element that was causing the issue:
+  const elNext = document.getElementById('next-change');
 
-  // Menus & Modals
+  // Tools & Menus
   const btnSound = document.getElementById('btn-sound');
   const btnMusicMenu = document.getElementById('btn-music-menu');
   const elMusicMenu = document.getElementById('music-menu');
@@ -45,7 +42,6 @@
   const elAdminSelect = document.getElementById('admin-location-select');
   const btnCloseAdmin = document.getElementById('btn-close-admin');
 
-  // Audio Player
   const audioPlayer = document.getElementById('bgm-player');
 
   // --- STATE ---
@@ -73,29 +69,17 @@
   // --- 1. CLIMATE & ADMIN LOGIC ---
 
   function detectClimate() {
-    // Check for Admin Override first
     const override = localStorage.getItem('minuteMuseAdminLocation');
     
     if (override && override !== 'auto') {
-      console.log("🔧 Admin Override:", override);
+      if (override === 'tropical') { climateMode = 'tropical'; calculatedSeason = 'tropical'; } 
+      else if (override.includes('north')) { climateMode = 'north'; calculatedSeason = override.includes('winter') ? 'winter' : 'summer'; } 
+      else if (override.includes('south')) { climateMode = 'south'; calculatedSeason = override.includes('winter') ? 'winter' : 'summer'; }
       
-      // Map Admin selection to JSON keys
-      if (override === 'tropical') {
-        climateMode = 'tropical';
-        calculatedSeason = 'tropical';
-      } else if (override.includes('north')) {
-        climateMode = 'north';
-        calculatedSeason = override.includes('winter') ? 'winter' : 'summer';
-      } else if (override.includes('south')) {
-        climateMode = 'south';
-        calculatedSeason = override.includes('winter') ? 'winter' : 'summer';
-      }
-      
-      elSeasonBadge.textContent = `🔧 ADMIN MODE: ${override.toUpperCase()}`;
+      if(elSeasonBadge) elSeasonBadge.textContent = `🔧 ADMIN MODE: ${override.toUpperCase()}`;
       return;
     }
 
-    // Standard Detection
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
       const city = tz.split('/')[1] || tz;
@@ -110,16 +94,16 @@
       climateMode = detected;
       const month = new Date().getMonth();
 
-      if (detected === 'tropical') {
-        calculatedSeason = 'tropical';
-        elSeasonBadge.textContent = `Tropical Climate • ${city.replace(/_/g, ' ')}`;
-      } else {
-        // Simple Season Logic for Audio
-        const isNorthWinter = [11, 0, 1].includes(month);
-        const isLocalWinter = (detected === 'north') ? isNorthWinter : !isNorthWinter;
-        calculatedSeason = isLocalWinter ? 'winter' : 'summer';
-        
-        elSeasonBadge.textContent = `${detected === 'north' ? 'Northern' : 'Southern'} Hemisphere • ${city.replace(/_/g, ' ')}`;
+      if(elSeasonBadge) {
+        if (detected === 'tropical') {
+          calculatedSeason = 'tropical';
+          elSeasonBadge.textContent = `Tropical Climate • ${city.replace(/_/g, ' ')}`;
+        } else {
+          const isNorthWinter = [11, 0, 1].includes(month);
+          const isLocalWinter = (detected === 'north') ? isNorthWinter : !isNorthWinter;
+          calculatedSeason = isLocalWinter ? 'winter' : 'summer';
+          elSeasonBadge.textContent = `${detected === 'north' ? 'Northern' : 'Southern'} Hemisphere • ${city.replace(/_/g, ' ')}`;
+        }
       }
     } catch (e) {
       climateMode = 'north'; 
@@ -130,6 +114,7 @@
   // --- 2. AUDIO SYSTEM ---
 
   function initAudioMenu() {
+    if(!elTrackList) return;
     elTrackList.innerHTML = '';
     TRACKS.forEach(track => {
       const li = document.createElement('li');
@@ -138,13 +123,14 @@
       li.innerHTML = `<span>${track.name}</span>`;
       li.addEventListener('click', () => {
         playTrack(track.id);
-        elMusicMenu.classList.add('hidden');
+        if(elMusicMenu) elMusicMenu.classList.add('hidden');
       });
       elTrackList.appendChild(li);
     });
   }
 
   function playTrack(trackId) {
+    if(!audioPlayer) return;
     const track = TRACKS.find(t => t.id === trackId);
     if (!track) return;
     if (currentTrackId === trackId && !audioPlayer.paused) return;
@@ -153,14 +139,12 @@
     audioPlayer.src = track.file;
     audioPlayer.volume = 0.3; 
     
-    // UI Update
     document.querySelectorAll('.track-item').forEach(el => {
       el.classList.toggle('active', el.dataset.id === trackId);
     });
 
     if (!isMuted) audioPlayer.play().catch(e => console.log("Autoplay blocked"));
     
-    // Visual Rain toggle
     if(track.tags.includes('tropical') || track.id === 'rain') {
       if(elRain) elRain.style.opacity = '0.4';
     } else {
@@ -169,34 +153,29 @@
   }
 
   function autoSelectTrack() {
-    if (currentTrackId) return; // Don't override user choice
-
-    // Find track matching calculated season
+    if (currentTrackId) return; 
     let bestMatch = TRACKS.find(t => t.tags.includes(calculatedSeason));
-    
-    // Fallbacks
     if (!bestMatch && climateMode === 'tropical') bestMatch = TRACKS.find(t => t.id === 'rain');
     if (!bestMatch) bestMatch = TRACKS.find(t => t.id === 'nature');
-
     if (bestMatch) playTrack(bestMatch.id);
   }
 
   function toggleMute() {
+    if(!audioPlayer) return;
     isMuted = !isMuted;
     if (isMuted) {
       audioPlayer.pause();
-      btnSound.innerHTML = '<span class="icon">🔇</span>';
+      if(btnSound) btnSound.innerHTML = '<span class="icon">🔇</span>';
     } else {
       audioPlayer.play();
-      btnSound.innerHTML = '<span class="icon">🔊</span>';
+      if(btnSound) btnSound.innerHTML = '<span class="icon">🔊</span>';
     }
   }
 
-  // --- 3. DATA LOADING (JSON) ---
+  // --- 3. DATA LOADING ---
 
   async function loadImages() {
     try {
-      // Add timestamp to ensure we get the fresh hourly update
       const res = await fetch(`images.json?t=${new Date().getTime()}`);
       if (!res.ok) throw new Error("JSON not found");
       imageData = await res.json();
@@ -204,10 +183,7 @@
   }
 
   function updateBackground(period) {
-    // In JSON, keys are 'north', 'south', 'tropical'
-    // climateMode matches these exactly.
     if (imageData && imageData[climateMode] && Array.isArray(imageData[climateMode][period])) {
-      
       const images = imageData[climateMode][period];
       const imgObj = images[Math.floor(Math.random() * images.length)];
       
@@ -215,13 +191,10 @@
         const img = new Image();
         img.onload = () => { document.body.style.backgroundImage = `url("${imgObj.url}")`; };
         img.src = imgObj.url;
-
-        // Attribution
-        elPhotoCredit.innerHTML = `Photo by <a href="${imgObj.link}?utm_source=MinuteMuse&utm_medium=referral" target="_blank">${imgObj.name}</a> on <a href="https://unsplash.com/?utm_source=MinuteMuse&utm_medium=referral" target="_blank">Unsplash</a>`;
+        if(elPhotoCredit) elPhotoCredit.innerHTML = `Photo by <a href="${imgObj.link}?utm_source=MinuteMuse&utm_medium=referral" target="_blank">${imgObj.name}</a> on <a href="https://unsplash.com/?utm_source=MinuteMuse&utm_medium=referral" target="_blank">Unsplash</a>`;
         return;
       }
     }
-    // Fallback
     document.body.style.backgroundImage = `linear-gradient(to bottom, #0f2027, #2c5364)`;
   }
 
@@ -245,6 +218,7 @@
   }
 
   function updateDisplay(quoteData, periodLabel) {
+    if(!elQuote || !elAuthor) return;
     elQuote.classList.add('fade-out');
     elAuthor.classList.add('fade-out');
     setTimeout(() => {
@@ -252,7 +226,7 @@
       elQuote.innerHTML = `“${qText}”`;
       if (quoteData.title) elAuthor.innerHTML = `<span class="author-name">${quoteData.author}</span><br><em>${quoteData.title}</em>`;
       else elAuthor.textContent = quoteData.author || "Unknown";
-      elPeriod.textContent = periodLabel;
+      if(elPeriod) elPeriod.textContent = periodLabel;
       elQuote.classList.remove('fade-out'); elAuthor.classList.remove('fade-out');
       elQuote.classList.add('fade-in'); elAuthor.classList.add('fade-in');
       setTimeout(() => { elQuote.classList.remove('fade-in'); elAuthor.classList.remove('fade-in'); }, 800);
@@ -274,7 +248,7 @@
 
     if (force || period !== lastPeriod) {
       lastPeriod = period;
-      detectClimate(); // Re-check (handles admin override)
+      detectClimate(); 
       updateBackground(period);
       autoSelectTrack(); 
     }
@@ -299,70 +273,83 @@
 
     updateDisplay(finalQuote, PERIODS_CONFIG[period].label);
     const hh = String(h).padStart(2,'0'); const mm = String(now.getMinutes()).padStart(2,'0');
-    elTime.textContent = `${hh}:${mm}`;
+    if(elTime) elTime.textContent = `${hh}:${mm}`;
   }
 
   // --- INIT & LISTENERS ---
 
   (async function init() {
     initAudioMenu();
-    await loadImages(); // Load JSON
+    await loadImages();
     detectClimate();
     await performUpdate(true);
     
-    // Event Listeners
-    btnSound.addEventListener('click', toggleMute);
-    btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
-    btnNew.addEventListener('click', () => performUpdate(true));
+    // Listeners
+    if(btnSound) btnSound.addEventListener('click', toggleMute);
+    if(btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
+    if(btnNew) btnNew.addEventListener('click', () => performUpdate(true));
     
-    // Music Menu
-    btnMusicMenu.addEventListener('click', (e) => {
-      e.stopPropagation();
-      elMusicMenu.classList.toggle('hidden');
-    });
-    document.addEventListener('click', (e) => {
-        if (!elMusicMenu.contains(e.target) && !btnMusicMenu.contains(e.target)) {
-            elMusicMenu.classList.add('hidden');
-        }
-    });
+    if(btnMusicMenu && elMusicMenu) {
+        btnMusicMenu.addEventListener('click', (e) => {
+          e.stopPropagation();
+          elMusicMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!elMusicMenu.contains(e.target) && !btnMusicMenu.contains(e.target)) {
+                elMusicMenu.classList.add('hidden');
+            }
+        });
+    }
 
-    // Journal
-    btnJournal.addEventListener('click', () => {
-      elJournalText.value = localStorage.getItem('minuteMuseJournal') || "";
-      elJournalOverlay.classList.remove('hidden');
-    });
-    btnCloseJournal.addEventListener('click', () => {
-      localStorage.setItem('minuteMuseJournal', elJournalText.value);
-      elJournalOverlay.classList.add('hidden');
-    });
+    if(btnJournal && elJournalOverlay) {
+        btnJournal.addEventListener('click', () => {
+          elJournalText.value = localStorage.getItem('minuteMuseJournal') || "";
+          elJournalOverlay.classList.remove('hidden');
+        });
+        btnCloseJournal.addEventListener('click', () => {
+          localStorage.setItem('minuteMuseJournal', elJournalText.value);
+          elJournalOverlay.classList.add('hidden');
+        });
+    }
     
-    // Admin Trigger (5 Clicks on Season Badge)
-    elSeasonBadge.addEventListener('click', () => {
-       adminClicks++;
-       if (adminClicks >= 5) {
-           adminClicks = 0;
-           elAdminSelect.value = localStorage.getItem('minuteMuseAdminLocation') || 'auto';
-           elAdminOverlay.classList.remove('hidden');
-       }
-    });
+    if(elSeasonBadge) {
+        elSeasonBadge.addEventListener('click', () => {
+           adminClicks++;
+           if (adminClicks >= 5) {
+               adminClicks = 0;
+               if(elAdminSelect) elAdminSelect.value = localStorage.getItem('minuteMuseAdminLocation') || 'auto';
+               if(elAdminOverlay) elAdminOverlay.classList.remove('hidden');
+           }
+        });
+    }
     
-    btnCloseAdmin.addEventListener('click', () => {
-        const val = elAdminSelect.value;
-        localStorage.setItem('minuteMuseAdminLocation', val);
-        elAdminOverlay.classList.add('hidden');
-        // Reload images based on new location setting
-        performUpdate(true); 
-    });
+    if(btnCloseAdmin) {
+        btnCloseAdmin.addEventListener('click', () => {
+            const val = elAdminSelect.value;
+            localStorage.setItem('minuteMuseAdminLocation', val);
+            elAdminOverlay.classList.add('hidden');
+            performUpdate(true); 
+        });
+    }
 
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Space') { e.preventDefault(); performUpdate(true); }
     });
 
+    // --- FIX: ROBUST TIMER LOOP ---
+    // The loop now runs regardless of whether elNext exists or not.
     setInterval(() => {
       const now = new Date();
+      
+      // 1. Visual Update (Only if element exists)
       if(elNext) elNext.textContent = `Next page in ${60 - now.getSeconds()}s`;
+      
+      // 2. Logic Update (Always run on minute 00)
       if(now.getSeconds() === 0) performUpdate();
+      
     }, 1000);
+    // ------------------------------------
+
   })();
 
 })();
