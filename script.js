@@ -1,5 +1,6 @@
 /* 
-   MINUTE MUSE - CURATOR EDITION (Robust Timer Fix)
+   MINUTE MUSE - ROBUST TIMER EDITION
+   Fixes: Timer starts immediately and doesn't wait for data fetching.
 */
 
 (() => {
@@ -22,7 +23,7 @@
   const elPhotoCredit = document.getElementById('photo-credit');
   const elRain = document.getElementById('rain-effect');
   
-  // The element that was causing the issue:
+  // Timer Element
   const elNext = document.getElementById('next-change');
 
   // Tools & Menus
@@ -53,6 +54,7 @@
   let isMuted = true;
   let currentTrackId = null;
   let adminClicks = 0; 
+  let isUpdating = false; // Prevent double updates
 
   const PERIODS_CONFIG = {
     dawn: { label: 'Dawn' },
@@ -241,7 +243,11 @@
     return 'night';
   }
 
+  // Main update function
   async function performUpdate(force = false) {
+    if (isUpdating && !force) return; // Simple lock
+    isUpdating = true;
+
     const now = new Date();
     const h = now.getHours();
     const period = getPeriod(h);
@@ -274,17 +280,40 @@
     updateDisplay(finalQuote, PERIODS_CONFIG[period].label);
     const hh = String(h).padStart(2,'0'); const mm = String(now.getMinutes()).padStart(2,'0');
     if(elTime) elTime.textContent = `${hh}:${mm}`;
+    
+    isUpdating = false;
+  }
+
+  // --- TIMER LOGIC (Moved outside init for safety) ---
+  function startClock() {
+    // Run immediately to set initial visual state
+    const now = new Date();
+    if(elNext) elNext.textContent = `Next page in ${60 - now.getSeconds()}s`;
+
+    setInterval(() => {
+      const currentNow = new Date();
+      const s = currentNow.getSeconds();
+      
+      // 1. Update Countdown Visuals
+      if(elNext) elNext.textContent = `Next page in ${60 - s}s`;
+
+      // 2. Trigger Logic Update exactly at second 0
+      if(s === 0) {
+        performUpdate();
+      }
+    }, 1000);
   }
 
   // --- INIT & LISTENERS ---
 
   (async function init() {
-    initAudioMenu();
-    await loadImages();
-    detectClimate();
-    await performUpdate(true);
+    // 1. Start the clock IMMEDIATELY. Don't wait for fetches.
+    startClock();
     
-    // Listeners
+    // 2. Load Data
+    initAudioMenu();
+    
+    // 3. UI Listeners
     if(btnSound) btnSound.addEventListener('click', toggleMute);
     if(btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
     if(btnNew) btnNew.addEventListener('click', () => performUpdate(true));
@@ -336,19 +365,10 @@
         if (e.code === 'Space') { e.preventDefault(); performUpdate(true); }
     });
 
-    // --- FIX: ROBUST TIMER LOOP ---
-    // The loop now runs regardless of whether elNext exists or not.
-    setInterval(() => {
-      const now = new Date();
-      
-      // 1. Visual Update (Only if element exists)
-      if(elNext) elNext.textContent = `Next page in ${60 - now.getSeconds()}s`;
-      
-      // 2. Logic Update (Always run on minute 00)
-      if(now.getSeconds() === 0) performUpdate();
-      
-    }, 1000);
-    // ------------------------------------
+    // 4. Initial Fetch (Async)
+    await loadImages(); 
+    detectClimate();
+    await performUpdate(true);
 
   })();
 
