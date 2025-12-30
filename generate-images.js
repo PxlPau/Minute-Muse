@@ -125,13 +125,17 @@ function getCurrentSeasons() {
 
 async function fetchImages(seasonKey, period, count = 3) {
   // 1. MIX & MATCH LOGIC
-  // Pick a random specific theme for this category
-  const sTheme = pick(SEASON_THEMES[seasonKey]);
-  const pTheme = pick(PERIOD_THEMES[period]);
-  
-  // Construct Query: e.g. "singapore architecture green morning coffee"
-  // Using spaces allows Unsplash to match broadly
-  const query = `${sTheme} ${pTheme}`;
+  const seasonThemes = SEASONS_CONFIG[currentSeasonKey]?.themes || ['nature'];
+  const randomS = seasonThemes[Math.floor(Math.random() * seasonThemes.length)];
+    
+  // 3. Get ONE random theme from PERIOD config
+  const periodThemes = PERIODS_CONFIG[period]?.themes || ['calm'];
+  const randomP = periodThemes[Math.floor(Math.random() * periodThemes.length)];
+
+  // --- COMBINE FOR QUERY ---
+  // We now combine two simpler, broader terms.
+  // Example: "tropical lush morning coffee"
+  const query = `${randomS} ${randomP}`;
   
   console.log(`      🔎 Query: "${query}"`);
 
