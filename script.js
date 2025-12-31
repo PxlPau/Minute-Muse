@@ -6,11 +6,11 @@
 (() => {
   // 🎵 PLAYLIST CONFIGURATION
   const TRACKS = [
-    { id: 'rain', name: 'Tropical Rain', file: 'audio/Jomon Grove - The Mini Vandals.mp3', tags: ['tropical'] },
-    { id: 'fire', name: 'Cozy Fireplace', file: 'audio/By the Fireplace - TrackTribe.mp3', tags: ['winter', 'north_winter', 'south_winter'] },
-    { id: 'nature', name: 'Forest Birds', file: 'audio/totality - Lish Grooves.mp3', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
-    // Add more here easily:
-    // { id: 'jazz', name: 'Smooth Jazz', file: 'audio/jazz.mp3', tags: ['night'] }
+    { id: 'rain', name: 'Tropical Rain', file: 'audio/503167__pablodavilla__tropical_rain_01.wav', tags: ['tropical'] },
+    { id: 'fire', name: 'Cozy Fireplace', file: 'audio/760474__true_killian__fireplace.m4a', tags: ['winter', 'north_winter', 'south_winter'] },
+    { id: 'nature', name: 'Forest Birds', file: 'audio/567531__titi2__silent-forest_birds_210410_0059.wav', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
+    { id: 'nature2', name: 'Forest Birds 2', file: 'audio/462137__sama66__forest-bird-1.wav', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
+    { id: 'jazz', name: 'Smooth Jazz', file: 'audio/317673__amandedou__amande_3201.mp3', tags: ['night'] }
   ];
 
   // --- DOM ELEMENTS ---
