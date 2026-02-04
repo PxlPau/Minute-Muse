@@ -256,6 +256,7 @@
 
   // Main update function
   async function performUpdate(force = false) {
+    if (focusMode) return; 
     if (isUpdating && !force) return; // Simple lock
     isUpdating = true;
 
@@ -323,6 +324,7 @@
     
     // 2. Load Data
     initAudioMenu();
+     
     const btnSpotify = document.getElementById('btn-spotify');
     const elSpotify = document.getElementById('spotify-container');
     const btnCloseSpotify = document.getElementById('close-spotify');
@@ -342,6 +344,132 @@
        elSpotify.classList.add('hidden');
      });
    }
+     const btnFocus = document.getElementById('btn-focus');
+     const elFocusOverlay = document.getElementById('focus-setup-overlay');
+     const inpFocusMin = document.getElementById('focus-input-min');
+     const btnStartFocus = document.getElementById('btn-start-focus');
+     const btnCancelFocus = document.getElementById('btn-cancel-focus');
+     
+     const elFocusControls = document.getElementById('focus-controls');
+     const btnFocusStop = document.getElementById('btn-focus-stop');
+     const btnFocusExpand = document.getElementById('btn-focus-expand');
+     const btnExitFullscreen = document.getElementById('exit-fullscreen-btn');
+   
+     let focusMode = false;
+     let focusTimeLeft = 0;
+     let focusInterval = null;
+   
+     // 1. Open Setup
+     if(btnFocus) {
+       btnFocus.addEventListener('click', () => {
+         if(focusMode) {
+           // If already running, show controls to stop/expand? 
+           // Or just toggle the overlay. Let's toggle overlay for safety.
+           // Actually, better UX: If running, clicking tomato does nothing or asks to stop.
+           // Let's rely on the internal Stop button.
+         } else {
+           elFocusOverlay.classList.remove('hidden');
+           inpFocusMin.focus();
+         }
+       });
+     }
+   
+     // 2. Start Timer
+     if(btnStartFocus) {
+       btnStartFocus.addEventListener('click', () => {
+         const mins = parseInt(inpFocusMin.value) || 25;
+         startFocusTimer(mins * 60);
+         elFocusOverlay.classList.add('hidden');
+       });
+     }
+   
+     // 3. Cancel Setup
+     if(btnCancelFocus) {
+       btnCancelFocus.addEventListener('click', () => {
+         elFocusOverlay.classList.add('hidden');
+       });
+     }
+   
+     // 4. Stop Timer
+     if(btnFocusStop) {
+       btnFocusStop.addEventListener('click', stopFocusTimer);
+     }
+   
+     // 5. Fullscreen Toggle
+     if(btnFocusExpand) {
+       btnFocusExpand.addEventListener('click', () => {
+         document.body.classList.add('focus-fullscreen');
+       });
+     }
+     if(btnExitFullscreen) {
+       btnExitFullscreen.addEventListener('click', () => {
+         document.body.classList.remove('focus-fullscreen');
+       });
+     }
+     // Allow Escape key to exit fullscreen
+     document.addEventListener('keydown', (e) => {
+       if (e.key === "Escape" && document.body.classList.contains('focus-fullscreen')) {
+         document.body.classList.remove('focus-fullscreen');
+       }
+     });
+   
+     function startFocusTimer(seconds) {
+       focusMode = true;
+       focusTimeLeft = seconds;
+       
+       // Hide standard elements / Show Focus UI
+       elFocusControls.classList.remove('hidden');
+       // Hide Quote temporarily to reduce clutter? Or keep it? 
+       // Let's keep the quote but change the Period text.
+       elPeriod.textContent = "FOCUS SESSION";
+       
+       // Disable new quote button to prevent distractions
+       if(btnNew) btnNew.style.pointerEvents = 'none';
+       if(btnNew) btnNew.style.opacity = '0.5';
+   
+       // Update immediately
+       updateTimerDisplay();
+   
+       // Start Loop
+       clearInterval(focusInterval);
+       focusInterval = setInterval(() => {
+         focusTimeLeft--;
+         updateTimerDisplay();
+   
+         if (focusTimeLeft <= 0) {
+           timerFinished();
+         }
+       }, 1000);
+     }
+   
+     function stopFocusTimer() {
+       focusMode = false;
+       clearInterval(focusInterval);
+       document.body.classList.remove('focus-fullscreen');
+       
+       // Reset UI
+       elFocusControls.classList.add('hidden');
+       if(btnNew) btnNew.style.pointerEvents = 'auto';
+       if(btnNew) btnNew.style.opacity = '1';
+       
+       // Force immediate update to return to real clock
+       performUpdate(true); 
+     }
+   
+     function timerFinished() {
+       stopFocusTimer();
+       // Play sound or alert
+       const audio = new Audio('audio/nature.mp3'); // Or a specific chime if you add one
+       audio.play();
+       alert("Focus Session Complete!");
+     }
+   
+     function updateTimerDisplay() {
+       const m = Math.floor(focusTimeLeft / 60);
+       const s = focusTimeLeft % 60;
+       // Update the main clock element
+       elTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+     }
     // 3. UI Listeners
     if(btnSound) btnSound.addEventListener('click', toggleMute);
     if(btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
