@@ -41,7 +41,10 @@
 
       <blockquote class="quote" id="quote">Loading story…</blockquote>
       <cite class="author" id="author"></cite>
-
+      <div id="focus-controls" class="focus-controls hidden">
+        <button id="btn-focus-expand" class="btn-small" title="Fullscreen">⛶ Expand</button>
+        <button id="btn-focus-stop" class="btn-small" title="Stop">🛑 Stop</button>
+      </div>
       <!-- TOOLBAR -->
       <div class="toolbar">
         <button id="btn-sound" class="tool-btn" title="Toggle Sound">
@@ -120,9 +123,6 @@
   </main>
   <!-- Hidden Spotify Container -->
   <div id="spotify-container" class="spotify-widget hidden">
-    <!-- Replace the 'src' below with YOUR Spotify Playlist Link -->
-    <!-- Go to Spotify > Right Click Playlist > Share > Embed > Copy code -->
-    <!-- Extract just the 'src' URL from that code -->
     <iframe 
       style="border-radius:12px" 
       src="https://open.spotify.com/embed/playlist/37i9dQZEVXbNG2KDcFcKOF?utm_source=generator&theme=0" 
@@ -135,6 +135,21 @@
     </iframe>
     <button id="close-spotify" class="close-btn">×</button>
   </div>
+  <div id="focus-setup-overlay" class="overlay hidden">
+    <div class="modal-card">
+      <h2>Start Focus Session</h2>
+      <p>How long do you want to focus?</p>
+      
+      <div class="input-group">
+        <input type="number" id="focus-input-min" value="25" min="1" max="180">
+        <span>minutes</span>
+      </div>
+  
+      <button id="btn-start-focus" class="btn-primary" style="margin-top:20px;">Start Timer</button>
+      <button id="btn-cancel-focus" class="btn-text" style="margin-top:10px;">Cancel</button>
+    </div>
+  </div>
+  <button id="exit-fullscreen-btn">Exit Fullscreen</button>
   <script src="script.js"></script>
 </body>
 </html>
