@@ -37,6 +37,9 @@
         <button id="btn-sound" class="tool-btn" title="Toggle Sound">
           <span class="icon">🔇</span>
         </button>
+        <button id="btn-spotify" class="tool-btn" title="Open Spotify">
+          <span class="icon">🟢</span> <!-- Green circle or use a Spotify SVG icon -->
+        </button>
         <!-- NEW: Music Menu Trigger -->
         <button id="btn-music-menu" class="tool-btn" title="Select Track">
           <span class="icon">🎵</span>
@@ -102,7 +105,23 @@
     </div>
 
   </main>
-
+  <!-- Hidden Spotify Container -->
+  <div id="spotify-container" class="spotify-widget hidden">
+    <!-- Replace the 'src' below with YOUR Spotify Playlist Link -->
+    <!-- Go to Spotify > Right Click Playlist > Share > Embed > Copy code -->
+    <!-- Extract just the 'src' URL from that code -->
+    <iframe 
+      style="border-radius:12px" 
+      src="https://open.spotify.com/embed/playlist/37i9dQZEVXbNG2KDcFcKOF?utm_source=generator&theme=0" 
+      width="100%" 
+      height="152" 
+      frameBorder="0" 
+      allowfullscreen="" 
+      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+      loading="lazy">
+    </iframe>
+    <button id="close-spotify" class="close-btn">×</button>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
