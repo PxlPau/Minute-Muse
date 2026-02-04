@@ -299,3 +299,57 @@ body.legal-page {
   cursor: pointer;
   font-weight: bold;
 }
+/* Focus Controls inside the card */
+.focus-controls {
+  display: flex; gap: 10px; justify-content: center; margin-top: 15px;
+}
+.focus-controls.hidden { display: none; }
+
+.btn-small {
+  background: rgba(255,255,255,0.15); border: none; color: white;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.btn-small:hover { background: rgba(255,255,255,0.3); }
+
+/* Setup Modal Inputs */
+.input-group {
+  display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 1.2rem;
+}
+#focus-input-min {
+  width: 80px; padding: 10px; border-radius: 8px; border: 1px solid #444;
+  background: #222; color: white; text-align: center; font-size: 1.5rem;
+}
+
+/* FULLSCREEN TIMER MODE */
+body.focus-fullscreen .card {
+  background: transparent; border: none; box-shadow: none; backdrop-filter: none;
+  position: fixed; inset: 0; width: 100%; height: 100%; max-width: none;
+  display: flex; flex-direction: column; justify-content: center;
+  z-index: 500;
+}
+
+body.focus-fullscreen .time {
+  font-size: 15vw; /* Huge Text */
+  text-shadow: 0 5px 30px rgba(0,0,0,0.5);
+}
+
+/* Hide everything else in fullscreen */
+body.focus-fullscreen .header-area,
+body.focus-fullscreen .quote,
+body.focus-fullscreen .author,
+body.focus-fullscreen .meta .period, /* Hide 'FOCUS MODE' label if desired, or keep it */
+body.focus-fullscreen .toolbar,
+body.focus-fullscreen .attribution,
+body.focus-fullscreen .next-change,
+body.focus-fullscreen #focus-controls {
+  display: none !important;
+}
+
+/* Add a floating 'Exit' button for fullscreen */
+#exit-fullscreen-btn {
+  display: none; position: fixed; top: 30px; right: 30px; z-index: 600;
+  background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2);
+  color: white; padding: 10px 20px; border-radius: 30px; cursor: pointer;
+}
+body.focus-fullscreen #exit-fullscreen-btn { display: block; }
