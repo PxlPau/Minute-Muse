@@ -1,6 +1,8 @@
 /* 
-   MINUTE MUSE - ROBUST TIMER EDITION
-   Fixes: Timer starts immediately and doesn't wait for data fetching.
+   MINUTE MUSE - FIXED & POLISHED
+   - Fixes 'focusMode not defined' crash
+   - Fixes Image Loading
+   - Integrates Timer, Audio, and Admin logic
 */
 
 (() => {
@@ -22,11 +24,9 @@
   const elSeasonBadge = document.getElementById('season-badge');
   const elPhotoCredit = document.getElementById('photo-credit');
   const elRain = document.getElementById('rain-effect');
-  const btnFocus = document.getElementById('btn-focus');
-  // Timer Element
   const elNext = document.getElementById('next-change');
 
-  // Tools & Menus
+  // Menus & Tools
   const btnSound = document.getElementById('btn-sound');
   const btnMusicMenu = document.getElementById('btn-music-menu');
   const elMusicMenu = document.getElementById('music-menu');
@@ -34,30 +34,35 @@
   const btnZen = document.getElementById('btn-zen');
   const btnJournal = document.getElementById('btn-journal');
   const btnNew = document.getElementById('new-quote');
+
+  // Spotify
+  const btnSpotify = document.getElementById('btn-spotify');
+  const elSpotify = document.getElementById('spotify-container');
+  const btnCloseSpotify = document.getElementById('close-spotify');
   
+  // Journal Modal
   const elJournalOverlay = document.getElementById('journal-overlay');
   const elJournalText = document.getElementById('journal-text');
   const btnCloseJournal = document.getElementById('btn-close-journal');
   
+  // Admin Modal
   const elAdminOverlay = document.getElementById('admin-overlay');
   const elAdminSelect = document.getElementById('admin-location-select');
   const btnCloseAdmin = document.getElementById('btn-close-admin');
 
-  const audioPlayer = document.getElementById('bgm-player');
+  // Focus Timer Elements
   const btnFocus = document.getElementById('btn-focus');
   const elFocusOverlay = document.getElementById('focus-setup-overlay');
   const inpFocusMin = document.getElementById('focus-input-min');
   const btnStartFocus = document.getElementById('btn-start-focus');
   const btnCancelFocus = document.getElementById('btn-cancel-focus');
-     
   const elFocusControls = document.getElementById('focus-controls');
   const btnFocusStop = document.getElementById('btn-focus-stop');
   const btnFocusExpand = document.getElementById('btn-focus-expand');
   const btnExitFullscreen = document.getElementById('exit-fullscreen-btn');
-   
-  let focusMode = false;
-  let focusTimeLeft = 0;
-  let focusInterval = null;
+
+  const audioPlayer = document.getElementById('bgm-player');
+
   // --- STATE ---
   let lastPeriod = null;
   let currentQuoteData = null;
@@ -67,7 +72,12 @@
   let isMuted = true;
   let currentTrackId = null;
   let adminClicks = 0; 
-  let isUpdating = false; // Prevent double updates
+  let isUpdating = false;
+  
+  // FOCUS STATE (Fixes ReferenceError)
+  let focusMode = false;
+  let focusTimeLeft = 0;
+  let focusInterval = null;
 
   const PERIODS_CONFIG = {
     dawn: { label: 'Dawn' },
@@ -80,18 +90,7 @@
   const FALLBACK_TEMPLATES = [
     "The clock showed {time}, and the world held its breath."
   ];
-  function escapeHTML(str) {
-     if (!str) return "";
-     return str.replace(/[&<>'"]/g, 
-       tag => ({
-         '&': '&amp;',
-         '<': '&lt;',
-         '>': '&gt;',
-         "'": '&#39;',
-         '"': '&quot;'
-       }[tag])
-     );
-   }
+
   // --- 1. CLIMATE & ADMIN LOGIC ---
 
   function detectClimate() {
@@ -205,7 +204,7 @@
       const res = await fetch(`images.json?t=${new Date().getTime()}`);
       if (!res.ok) throw new Error("JSON not found");
       imageData = await res.json();
-    } catch (e) { console.warn("Fallback mode"); }
+    } catch (e) { console.warn("Fallback mode - Image JSON missing"); }
   }
 
   function updateBackground(period) {
@@ -221,10 +220,64 @@
         return;
       }
     }
+    // Fallback if image fails or JSON missing
     document.body.style.backgroundImage = `linear-gradient(to bottom, #0f2027, #2c5364)`;
   }
 
-  // --- 4. CORE LOOP ---
+  // --- 4. FOCUS TIMER LOGIC ---
+
+  function startFocusTimer(seconds) {
+    focusMode = true;
+    focusTimeLeft = seconds;
+    
+    // UI Updates
+    if(elFocusControls) elFocusControls.classList.remove('hidden');
+    if(elPeriod) elPeriod.textContent = "FOCUS SESSION";
+    
+    // Disable distraction buttons
+    if(btnNew) { btnNew.style.pointerEvents = 'none'; btnNew.style.opacity = '0.5'; }
+
+    updateTimerDisplay();
+
+    // Loop
+    if(focusInterval) clearInterval(focusInterval);
+    focusInterval = setInterval(() => {
+      focusTimeLeft--;
+      updateTimerDisplay();
+
+      if (focusTimeLeft <= 0) {
+        timerFinished();
+      }
+    }, 1000);
+  }
+
+  function stopFocusTimer() {
+    focusMode = false;
+    if(focusInterval) clearInterval(focusInterval);
+    document.body.classList.remove('focus-fullscreen');
+    
+    // UI Reset
+    if(elFocusControls) elFocusControls.classList.add('hidden');
+    if(btnNew) { btnNew.style.pointerEvents = 'auto'; btnNew.style.opacity = '1'; }
+    
+    // Force immediate update to return to real clock
+    isUpdating = false;
+    performUpdate(true); 
+  }
+
+  function timerFinished() {
+    stopFocusTimer();
+    // Simple alert
+    alert("Focus Session Complete!");
+  }
+
+  function updateTimerDisplay() {
+    const m = Math.floor(focusTimeLeft / 60);
+    const s = focusTimeLeft % 60;
+    if(elTime) elTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  // --- 5. CORE LOOP ---
 
   async function fetchRealQuote(date) {
     const hh = String(date.getHours()).padStart(2, '0');
@@ -252,7 +305,10 @@
       elQuote.innerHTML = `“${qText}”`;
       if (quoteData.title) elAuthor.innerHTML = `<span class="author-name">${quoteData.author}</span><br><em>${quoteData.title}</em>`;
       else elAuthor.textContent = quoteData.author || "Unknown";
-      if(elPeriod) elPeriod.textContent = periodLabel;
+      
+      // Only show period label if NOT in focus mode
+      if(elPeriod && !focusMode) elPeriod.textContent = periodLabel;
+      
       elQuote.classList.remove('fade-out'); elAuthor.classList.remove('fade-out');
       elQuote.classList.add('fade-in'); elAuthor.classList.add('fade-in');
       setTimeout(() => { elQuote.classList.remove('fade-in'); elAuthor.classList.remove('fade-in'); }, 800);
@@ -269,8 +325,10 @@
 
   // Main update function
   async function performUpdate(force = false) {
+    // 🛑 BLOCK UPDATES IF TIMER IS RUNNING
     if (focusMode) return; 
-    if (isUpdating && !force) return; // Simple lock
+    
+    if (isUpdating && !force) return; 
     isUpdating = true;
 
     const now = new Date();
@@ -309,9 +367,7 @@
     isUpdating = false;
   }
 
-  // --- TIMER LOGIC (Moved outside init for safety) ---
   function startClock() {
-    // Run immediately to set initial visual state
     const now = new Date();
     if(elNext) elNext.textContent = `Next page in ${60 - now.getSeconds()}s`;
 
@@ -319,10 +375,9 @@
       const currentNow = new Date();
       const s = currentNow.getSeconds();
       
-      // 1. Update Countdown Visuals
-      if(elNext) elNext.textContent = `Next page in ${60 - s}s`;
+      // Only update countdown if NOT in focus mode (optional, but cleaner)
+      if(elNext && !focusMode) elNext.textContent = `Next page in ${60 - s}s`;
 
-      // 2. Trigger Logic Update exactly at second 0
       if(s === 0) {
         performUpdate();
       }
@@ -332,174 +387,44 @@
   // --- INIT & LISTENERS ---
 
   (async function init() {
-    // 1. Start the clock IMMEDIATELY. Don't wait for fetches.
     startClock();
-    
-    // 2. Load Data
     initAudioMenu();
-     
-    const btnSpotify = document.getElementById('btn-spotify');
-    const elSpotify = document.getElementById('spotify-container');
-    const btnCloseSpotify = document.getElementById('close-spotify');
-   
-    if (btnSpotify && elSpotify) {
-     btnSpotify.addEventListener('click', () => {
-       // Hide internal music menu if open
-       if(elMusicMenu) elMusicMenu.classList.add('hidden');
-       // Pause internal audio
-       if(audioPlayer && !audioPlayer.paused) {
-          toggleMute(); // Reuse your existing mute logic to stop internal sounds
-       }
-       elSpotify.classList.remove('hidden');
-     });
-   
-     btnCloseSpotify.addEventListener('click', () => {
-       elSpotify.classList.add('hidden');
-     });
-   }
-     
-   
-     // 1. Open Setup
-     if(btnFocus) {
-       btnFocus.addEventListener('click', () => {
-         if(focusMode) {
-           // If already running, show controls to stop/expand? 
-           // Or just toggle the overlay. Let's toggle overlay for safety.
-           // Actually, better UX: If running, clicking tomato does nothing or asks to stop.
-           // Let's rely on the internal Stop button.
-         } else {
-           elFocusOverlay.classList.remove('hidden');
-           inpFocusMin.focus();
-         }
-       });
-     }
-   
-     // 2. Start Timer
-     if(btnStartFocus) {
-       btnStartFocus.addEventListener('click', () => {
-         const mins = parseInt(inpFocusMin.value) || 25;
-         startFocusTimer(mins * 60);
-         elFocusOverlay.classList.add('hidden');
-       });
-     }
-   
-     // 3. Cancel Setup
-     if(btnCancelFocus) {
-       btnCancelFocus.addEventListener('click', () => {
-         elFocusOverlay.classList.add('hidden');
-       });
-     }
-   
-     // 4. Stop Timer
-     if(btnFocusStop) {
-       btnFocusStop.addEventListener('click', stopFocusTimer);
-     }
-   
-     // 5. Fullscreen Toggle
-     if(btnFocusExpand) {
-       btnFocusExpand.addEventListener('click', () => {
-         document.body.classList.add('focus-fullscreen');
-       });
-     }
-     if(btnExitFullscreen) {
-       btnExitFullscreen.addEventListener('click', () => {
-         document.body.classList.remove('focus-fullscreen');
-       });
-     }
-     // Allow Escape key to exit fullscreen
-     document.addEventListener('keydown', (e) => {
-       if (e.key === "Escape" && document.body.classList.contains('focus-fullscreen')) {
-         document.body.classList.remove('focus-fullscreen');
-       }
-     });
-   
-     function startFocusTimer(seconds) {
-       focusMode = true;
-       focusTimeLeft = seconds;
-       
-       // Hide standard elements / Show Focus UI
-       elFocusControls.classList.remove('hidden');
-       // Hide Quote temporarily to reduce clutter? Or keep it? 
-       // Let's keep the quote but change the Period text.
-       elPeriod.textContent = "FOCUS SESSION";
-       
-       // Disable new quote button to prevent distractions
-       if(btnNew) btnNew.style.pointerEvents = 'none';
-       if(btnNew) btnNew.style.opacity = '0.5';
-   
-       // Update immediately
-       updateTimerDisplay();
-   
-       // Start Loop
-       clearInterval(focusInterval);
-       focusInterval = setInterval(() => {
-         focusTimeLeft--;
-         updateTimerDisplay();
-   
-         if (focusTimeLeft <= 0) {
-           timerFinished();
-         }
-       }, 1000);
-     }
-   
-     function stopFocusTimer() {
-       focusMode = false;
-       clearInterval(focusInterval);
-       document.body.classList.remove('focus-fullscreen');
-       
-       // Reset UI
-       elFocusControls.classList.add('hidden');
-       if(btnNew) btnNew.style.pointerEvents = 'auto';
-       if(btnNew) btnNew.style.opacity = '1';
-       
-       // Force immediate update to return to real clock
-       performUpdate(true); 
-     }
-   
-     function timerFinished() {
-       stopFocusTimer();
-       // Play sound or alert
-       const audio = new Audio('audio/nature.mp3'); // Or a specific chime if you add one
-       audio.play();
-       alert("Focus Session Complete!");
-     }
-   
-     function updateTimerDisplay() {
-       const m = Math.floor(focusTimeLeft / 60);
-       const s = focusTimeLeft % 60;
-       // Update the main clock element
-       elTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-     }
-    // 3. UI Listeners
+    
+    // Listeners
     if(btnSound) btnSound.addEventListener('click', toggleMute);
     if(btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
     if(btnNew) btnNew.addEventListener('click', () => performUpdate(true));
     
     if(btnMusicMenu && elMusicMenu) {
-        btnMusicMenu.addEventListener('click', (e) => {
-          e.stopPropagation();
-          elMusicMenu.classList.toggle('hidden');
-        });
+        btnMusicMenu.addEventListener('click', (e) => { e.stopPropagation(); elMusicMenu.classList.toggle('hidden'); });
         document.addEventListener('click', (e) => {
-            if (!elMusicMenu.contains(e.target) && !btnMusicMenu.contains(e.target)) {
-                elMusicMenu.classList.add('hidden');
-            }
+            if (!elMusicMenu.contains(e.target) && !btnMusicMenu.contains(e.target)) elMusicMenu.classList.add('hidden');
         });
     }
 
+    // Spotify
+    if (btnSpotify && elSpotify) {
+      btnSpotify.addEventListener('click', () => {
+        if(elMusicMenu) elMusicMenu.classList.add('hidden');
+        if(audioPlayer && !audioPlayer.paused) toggleMute(); // Pause internal audio
+        elSpotify.classList.remove('hidden');
+      });
+      if(btnCloseSpotify) btnCloseSpotify.addEventListener('click', () => elSpotify.classList.add('hidden'));
+    }
+
+    // Journal
     if(btnJournal && elJournalOverlay) {
         btnJournal.addEventListener('click', () => {
-           const rawText = localStorage.getItem('minuteMuseJournal') || "";
-           // Safe load
-           elJournalText.value = rawText; // Textarea values are usually safe, but good habit
-           elJournalOverlay.classList.remove('hidden');
-         });
+          elJournalText.value = localStorage.getItem('minuteMuseJournal') || "";
+          elJournalOverlay.classList.remove('hidden');
+        });
         btnCloseJournal.addEventListener('click', () => {
           localStorage.setItem('minuteMuseJournal', elJournalText.value);
           elJournalOverlay.classList.add('hidden');
         });
     }
     
+    // Admin
     if(elSeasonBadge) {
         elSeasonBadge.addEventListener('click', () => {
            adminClicks++;
@@ -510,7 +435,6 @@
            }
         });
     }
-    
     if(btnCloseAdmin) {
         btnCloseAdmin.addEventListener('click', () => {
             const val = elAdminSelect.value;
@@ -520,11 +444,39 @@
         });
     }
 
+    // Focus Timer
+    if(btnFocus) {
+        btnFocus.addEventListener('click', () => {
+            if(focusMode) return; // Do nothing if running
+            if(elFocusOverlay) {
+                elFocusOverlay.classList.remove('hidden');
+                if(inpFocusMin) inpFocusMin.focus();
+            }
+        });
+    }
+    if(btnStartFocus) {
+        btnStartFocus.addEventListener('click', () => {
+            const mins = parseInt(inpFocusMin.value) || 25;
+            startFocusTimer(mins * 60);
+            elFocusOverlay.classList.add('hidden');
+        });
+    }
+    if(btnCancelFocus) btnCancelFocus.addEventListener('click', () => elFocusOverlay.classList.add('hidden'));
+    if(btnFocusStop) btnFocusStop.addEventListener('click', stopFocusTimer);
+    
+    if(btnFocusExpand) btnFocusExpand.addEventListener('click', () => document.body.classList.add('focus-fullscreen'));
+    if(btnExitFullscreen) btnExitFullscreen.addEventListener('click', () => document.body.classList.remove('focus-fullscreen'));
+    document.addEventListener('keydown', (e) => {
+        if (e.key === "Escape" && document.body.classList.contains('focus-fullscreen')) {
+          document.body.classList.remove('focus-fullscreen');
+        }
+    });
+
     window.addEventListener('keydown', (e) => {
         if (e.code === 'Space') { e.preventDefault(); performUpdate(true); }
     });
 
-    // 4. Initial Fetch (Async)
+    // Load Data
     await loadImages(); 
     detectClimate();
     await performUpdate(true);
