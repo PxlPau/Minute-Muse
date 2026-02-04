@@ -67,7 +67,18 @@
   const FALLBACK_TEMPLATES = [
     "The clock showed {time}, and the world held its breath."
   ];
-
+  function escapeHTML(str) {
+     if (!str) return "";
+     return str.replace(/[&<>'"]/g, 
+       tag => ({
+         '&': '&amp;',
+         '<': '&lt;',
+         '>': '&gt;',
+         "'": '&#39;',
+         '"': '&quot;'
+       }[tag])
+     );
+   }
   // --- 1. CLIMATE & ADMIN LOGIC ---
 
   function detectClimate() {
@@ -350,9 +361,11 @@
 
     if(btnJournal && elJournalOverlay) {
         btnJournal.addEventListener('click', () => {
-          elJournalText.value = localStorage.getItem('minuteMuseJournal') || "";
-          elJournalOverlay.classList.remove('hidden');
-        });
+           const rawText = localStorage.getItem('minuteMuseJournal') || "";
+           // Safe load
+           elJournalText.value = rawText; // Textarea values are usually safe, but good habit
+           elJournalOverlay.classList.remove('hidden');
+         });
         btnCloseJournal.addEventListener('click', () => {
           localStorage.setItem('minuteMuseJournal', elJournalText.value);
           elJournalOverlay.classList.add('hidden');
