@@ -22,7 +22,7 @@
   const elSeasonBadge = document.getElementById('season-badge');
   const elPhotoCredit = document.getElementById('photo-credit');
   const elRain = document.getElementById('rain-effect');
-  
+  const btnFocus = document.getElementById('btn-focus');
   // Timer Element
   const elNext = document.getElementById('next-change');
 
