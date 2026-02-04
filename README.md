@@ -4,7 +4,7 @@
 
 **Minute Muse** is a cozy, atmospheric web application that turns every minute of the day into a story. It combines real-time literature quotes, dynamic seasonal photography, and immersive soundscapes to create a calming digital environment.
 
-🔗 **[Live Demo](https://studybeetutoring.github.io/Minute-Muse/)** 
+🔗 **[Live Demo](https://pxlpau.github.io/Minute-Muse/)** 
 
 ---
 
