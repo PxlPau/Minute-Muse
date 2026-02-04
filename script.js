@@ -44,7 +44,20 @@
   const btnCloseAdmin = document.getElementById('btn-close-admin');
 
   const audioPlayer = document.getElementById('bgm-player');
-
+  const btnFocus = document.getElementById('btn-focus');
+  const elFocusOverlay = document.getElementById('focus-setup-overlay');
+  const inpFocusMin = document.getElementById('focus-input-min');
+  const btnStartFocus = document.getElementById('btn-start-focus');
+  const btnCancelFocus = document.getElementById('btn-cancel-focus');
+     
+  const elFocusControls = document.getElementById('focus-controls');
+  const btnFocusStop = document.getElementById('btn-focus-stop');
+  const btnFocusExpand = document.getElementById('btn-focus-expand');
+  const btnExitFullscreen = document.getElementById('exit-fullscreen-btn');
+   
+  let focusMode = false;
+  let focusTimeLeft = 0;
+  let focusInterval = null;
   // --- STATE ---
   let lastPeriod = null;
   let currentQuoteData = null;
@@ -344,20 +357,7 @@
        elSpotify.classList.add('hidden');
      });
    }
-     const btnFocus = document.getElementById('btn-focus');
-     const elFocusOverlay = document.getElementById('focus-setup-overlay');
-     const inpFocusMin = document.getElementById('focus-input-min');
-     const btnStartFocus = document.getElementById('btn-start-focus');
-     const btnCancelFocus = document.getElementById('btn-cancel-focus');
      
-     const elFocusControls = document.getElementById('focus-controls');
-     const btnFocusStop = document.getElementById('btn-focus-stop');
-     const btnFocusExpand = document.getElementById('btn-focus-expand');
-     const btnExitFullscreen = document.getElementById('exit-fullscreen-btn');
-   
-     let focusMode = false;
-     let focusTimeLeft = 0;
-     let focusInterval = null;
    
      // 1. Open Setup
      if(btnFocus) {
