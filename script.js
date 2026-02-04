@@ -312,7 +312,25 @@
     
     // 2. Load Data
     initAudioMenu();
-    
+    const btnSpotify = document.getElementById('btn-spotify');
+    const elSpotify = document.getElementById('spotify-container');
+    const btnCloseSpotify = document.getElementById('close-spotify');
+   
+    if (btnSpotify && elSpotify) {
+     btnSpotify.addEventListener('click', () => {
+       // Hide internal music menu if open
+       if(elMusicMenu) elMusicMenu.classList.add('hidden');
+       // Pause internal audio
+       if(audioPlayer && !audioPlayer.paused) {
+          toggleMute(); // Reuse your existing mute logic to stop internal sounds
+       }
+       elSpotify.classList.remove('hidden');
+     });
+   
+     btnCloseSpotify.addEventListener('click', () => {
+       elSpotify.classList.add('hidden');
+     });
+   }
     // 3. UI Listeners
     if(btnSound) btnSound.addEventListener('click', toggleMute);
     if(btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
