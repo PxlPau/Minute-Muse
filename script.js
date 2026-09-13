@@ -287,11 +287,58 @@
     }
   }
 
-  function getFallbackQuote(date) {
-    const t = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const tmpl = FALLBACK_TEMPLATES[0];
-    return { text: tmpl.replace("{time}", t), author: "Minute Muse", title: "Focus Room" };
+ let quotesDatabase = null;
+
+async function loadQuotesDatabase() {
+  try {
+    const res = await fetch(`quotes.json?t=${Date.now()}`);
+    if (!res.ok) throw new Error("quotes.json not found");
+    quotesDatabase = await res.json();
+    console.log("📚 Local literature database loaded.");
+  } catch (err) {
+    console.warn("⚠️ Could not load local quotes.json; using fallback quotes.");
+    quotesDatabase = {};
   }
+}
+
+function getQuoteForTime(date) {
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const timeKey = `${hh}:${mm}`;
+
+  if (quotesDatabase && quotesDatabase[timeKey] && quotesDatabase[timeKey].length > 0) {
+    const choices = quotesDatabase[timeKey];
+    const picked = choices[Math.floor(Math.random() * choices.length)];
+    
+    // Highlight the time case word inside the quote
+    let highlightedQuote = picked.quote;
+    if (picked.time_case) {
+      // Escape special characters for regex
+      const safeCase = picked.time_case.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${safeCase})`, 'i');
+      highlightedQuote = picked.quote.replace(regex, `<span class="time-highlight">$1</span>`);
+    }
+
+    return {
+      text: highlightedQuote,
+      author: picked.author,
+      title: picked.title
+    };
+  }
+
+  // Fallback quote if this minute has no entry in the dataset
+  return getFallbackQuote(date);
+}
+
+function getFallbackQuote(date) {
+  const t = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const tmpl = FALLBACK_TEMPLATES[0];
+  return { 
+    text: tmpl.replace("{time}", `<span class="time-highlight">${t}</span>`), 
+    author: "Minute Muse", 
+    title: "Focus Room" 
+  };
+}
 
   function updateDisplay(quoteData, periodLabel) {
     if (!elQuote || !elAuthor) return;
@@ -330,48 +377,36 @@
   }
 
   async function performUpdate(force = false) {
-    if (focusMode) return; 
-    if (isUpdating && !force) return; 
-    isUpdating = true;
+  if (focusMode) return; 
+  if (isUpdating && !force) return; 
+  isUpdating = true;
 
-    const now = new Date();
-    const h = now.getHours();
-    const period = getPeriod(h);
+  const now = new Date();
+  const h = now.getHours();
+  const period = getPeriod(h);
 
-    if (force || period !== lastPeriod) {
-      lastPeriod = period;
-      detectClimate(); 
-      updateBackground(period);
-      autoSelectTrack(); 
-    }
-
-    if (!currentQuoteData || force || now.getSeconds() === 0) {
-      currentQuoteData = await fetchRealQuote(now);
-    }
-    
-    const greetings = ["Good Night", "Good Morning", "Good Afternoon", "Good Evening", "Deep Work Night"];
-    const gIndex = h < 5 ? 0 : h < 12 ? 1 : h < 17 ? 2 : h < 22 ? 3 : 4;
-    if (elGreeting) elGreeting.textContent = greetings[gIndex];
-
-    let finalQuote;
-    if (currentQuoteData && currentQuoteData.length) {
-      const r = currentQuoteData[Math.floor(Math.random() * currentQuoteData.length)];
-      finalQuote = {
-        text: `${r.quote_first} ${r.quote_time_case} ${r.quote_last}`,
-        author: r.author,
-        title: r.title
-      };
-    } else {
-      finalQuote = getFallbackQuote(now);
-    }
-
-    updateDisplay(finalQuote, PERIODS_CONFIG[period].label);
-    const hh = String(h).padStart(2,'0');
-    const mm = String(now.getMinutes()).padStart(2,'0');
-    if (elTime) elTime.textContent = `${hh}:${mm}`;
-    
-    isUpdating = false;
+  if (force || period !== lastPeriod) {
+    lastPeriod = period;
+    detectClimate(); 
+    updateBackground(period);
+    autoSelectTrack(); 
   }
+
+  // Instant local lookup (Zero network latency)
+  const quoteData = getQuoteForTime(now);
+
+  const greetings = ["Good Night", "Good Morning", "Good Afternoon", "Good Evening", "Deep Work Night"];
+  const gIndex = h < 5 ? 0 : h < 12 ? 1 : h < 17 ? 2 : h < 22 ? 3 : 4;
+  if (elGreeting) elGreeting.textContent = greetings[gIndex];
+
+  updateDisplay(quoteData, PERIODS_CONFIG[period].label);
+  
+  const hh = String(h).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  if (elTime) elTime.textContent = `${hh}:${mm}`;
+  
+  isUpdating = false;
+}
 
   function startClock() {
     const now = new Date();
@@ -510,6 +545,7 @@
     });
 
     // Load initial data
+     await loadQuotesDatabase();
     await loadImages(); 
     detectClimate();
     await performUpdate(true);
