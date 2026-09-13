@@ -2,39 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Privacy Policy - Minute Muse</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy Policy — Minute Muse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="legal-page">
-  <div class="legal-container">
-    <a href="index.html" class="back-link">← Back to Minute Muse</a>
+  <main class="legal-container">
+    <a href="index.html" class="back-link">← Return to Minute Muse</a>
 
     <h1>Privacy Policy</h1>
-    <p>Last Updated: December 2025</p>
+    <p><em>Last Updated: 2026</em></p>
 
-    <h2>1. Data Collection</h2>
-    <p>Minute Muse is designed with privacy in mind. <strong>We do not collect, store, or transmit your personal data to any external servers.</strong></p>
+    <h2>1. Privacy-First Commitment</h2>
+    <p>Minute Muse is architected with strict client-side privacy. <strong>We do not run tracking cookies, analytics trackers, or user profiling algorithms.</strong></p>
 
-    <h2>2. Local Storage</h2>
-    <p>This application uses your browser's <code>localStorage</code> to save your preferences locally on your device. This includes:</p>
+    <h2>2. Local Storage (On-Device Persistence)</h2>
+    <p>To retain your study workspace across page refreshes, Minute Muse uses your browser's built-in <code>localStorage</code> API. The following keys are stored exclusively on your device:</p>
     <ul>
-      <li>Your Journal entries.</li>
-      <li>Your "Zen Mode" preference.</li>
-      <li>Admin settings (if applicable).</li>
+      <li><code>minuteMuseJournal</code>: The text you write in your personal reflection journal.</li>
+      <li><code>minuteMuseAdminLocation</code>: Your manual climate/season override preference (if chosen).</li>
     </ul>
-    <p>This data never leaves your device. clearing your browser cache will delete this data.</p>
+    <p>This information is never transmitted to our servers or third parties. Clearing your browser data or site storage will erase these entries immediately.</p>
 
-    <h2>3. Third-Party Services</h2>
-    <p>To function, this application connects to the following third-party services:</p>
+    <h2>3. Location & Timezone Processing</h2>
+    <p>Minute Muse does <strong>not</strong> access your device GPS or IP-geolocation APIs. The climate badge checks your browser's local timezone string (e.g. <code>Intl.DateTimeFormat().resolvedOptions().timeZone</code>) purely inside client-side JavaScript to estimate hemisphere and season.</p>
+
+    <h2>4. Third-Party Integrations</h2>
+    <p>When loading assets, standard browser requests are made to:</p>
     <ul>
-      <li><strong>Unsplash (Image CDN):</strong> Background images are loaded directly from Unsplash's servers ("hotlinked"). This ensures photographers receive credit for views. Consequently, when an image loads, your browser sends a standard HTTP request (including your IP address) to Unsplash. Please refer to <a href="https://unsplash.com/privacy" target="_blank" style="color:#aaa;">Unsplash's Privacy Policy</a>.</li>
-      <li><strong>GitHub Pages:</strong> This site is hosted on GitHub Pages. GitHub may collect standard server logs (IP address, browser type) for security and performance monitoring.</li>
+      <li><strong>Unsplash (Images):</strong> Photography is hotlinked directly from Unsplash CDNs so photographers receive view attribution. Refer to <a href="https://unsplash.com/privacy" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">Unsplash's Privacy Policy</a>.</li>
+      <li><strong>Google Fonts:</strong> Typography stylesheets (Inter and Playfair Display) are served via Google's font CDN.</li>
+      <li><strong>Spotify (Optional):</strong> If you choose to open the Spotify widget, the embedded iframe connects directly to Spotify. No Spotify user information is collected by Minute Muse.</li>
     </ul>
-
-    <h2>4. Location Data</h2>
-    <p>We do NOT track your GPS location. The "Climate Detection" feature works by checking your browser's Timezone setting (e.g., "Asia/Singapore"). This happens entirely within your browser code.</p>
-  </div>
+  </main>
 </body>
 </html>
