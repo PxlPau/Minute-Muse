@@ -30,21 +30,34 @@
 
   <main class="app" id="app-container">
     
-    <header class="header-area">
-      <h1 id="greeting">Hello, Traveler</h1>
-      <!-- Trigger: Click 5 times to toggle Admin Mode -->
-      <button class="season-badge" id="season-badge" title="Click 5 times for Admin mode">Detecting Climate…</button>
+    <!-- TIMEPIECE HERO: Prominent, natural clock with ambient context -->
+    <header class="timepiece-hero" aria-label="Clock and Ambience">
+      <div class="time-row">
+        <span class="time-digits" id="time" aria-live="polite">--:--</span>
+        <span class="time-ampm" id="ampm">--</span>
+      </div>
+      <div class="time-context">
+        <span id="greeting">Good Day</span>
+        <span class="dot" aria-hidden="true">•</span>
+        <span id="period">Loading…</span>
+        <span class="dot" aria-hidden="true">•</span>
+        <button class="season-badge" id="season-badge" title="Click 5 times for Admin override">Detecting Climate…</button>
+      </div>
     </header>
 
-    <section class="card" id="quote-card" aria-label="Current Quote and Clock">
-      <div class="meta">
-        <div class="time" id="time" aria-live="polite">--:--</div>
-        <div class="period" id="period">Loading…</div>
+    <!-- UNBROKEN LITERARY CARD: Pure reading & focus flow -->
+    <section class="card" id="quote-card" aria-label="Current Reading">
+      <div class="quote-wrapper">
+        <blockquote class="quote" id="quote">
+          Loading story…
+        </blockquote>
       </div>
 
-      <blockquote class="quote" id="quote">Loading story…</blockquote>
-      <cite class="author" id="author"></cite>
+      <div class="quote-footer">
+        <cite class="author" id="author"></cite>
+      </div>
       
+      <!-- Focus Mode Controls (Only active during Pomodoro) -->
       <div id="focus-controls" class="focus-controls hidden">
         <button id="btn-focus-expand" class="btn-small" title="Fullscreen Focus">⛶ Expand</button>
         <button id="btn-focus-stop" class="btn-small" title="End Session">🛑 Stop</button>
@@ -52,10 +65,10 @@
 
       <!-- TOOLBAR -->
       <nav class="toolbar" aria-label="Quick Controls">
-        <button id="btn-sound" class="tool-btn" title="Toggle Sound" aria-label="Toggle Sound">
+        <button id="btn-sound" class="tool-btn" title="Toggle Ambience Sound" aria-label="Toggle Ambience Sound">
           <span class="icon" aria-hidden="true">🔇</span>
         </button>
-        <button id="btn-music-menu" class="tool-btn" title="Ambience Soundtracks" aria-label="Ambience Soundtracks">
+        <button id="btn-music-menu" class="tool-btn" title="Select Soundscape" aria-label="Select Soundscape">
           <span class="icon" aria-hidden="true">🎵</span>
         </button>
         <button id="btn-spotify" class="tool-btn" title="Open Spotify Player" aria-label="Open Spotify Player">
@@ -70,7 +83,7 @@
         <button id="btn-zen" class="tool-btn" title="Toggle Zen Mode" aria-label="Toggle Zen Mode">
           <span class="icon" aria-hidden="true">👁️</span>
         </button>
-        <button id="new-quote" class="tool-btn" title="New Quote & Vibe" aria-label="New Quote & Vibe">
+        <button id="new-quote" class="tool-btn" title="Refresh Inspiration" aria-label="Refresh Inspiration">
           <span class="icon" aria-hidden="true">↻</span>
         </button>
       </nav>
@@ -78,9 +91,7 @@
       <!-- MUSIC SELECTION POPUP -->
       <div id="music-menu" class="music-menu hidden" role="menu" aria-label="Ambience Tracks">
         <div class="music-header">Select Ambience</div>
-        <ul id="track-list">
-          <!-- Tracks injected via JS -->
-        </ul>
+        <ul id="track-list"></ul>
       </div>
 
       <div class="next-change" id="next-change">Next page in 60s</div>
@@ -89,7 +100,7 @@
       <footer class="attribution">
         <span id="photo-credit">Atmosphere via Unsplash</span>
         <span class="separator" aria-hidden="true">&bull;</span>
-        Quotes via <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a>
+        Quotes curated via <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a>
         <br>
         <nav class="legal-links" aria-label="Legal & Information">
           <button id="btn-open-credits" class="text-link-btn">Credits & Licenses</button> &bull;
@@ -99,6 +110,8 @@
         </nav>
       </footer>
     </section>
+
+    <!-- JOURNAL, FOCUS SETUP, CREDITS & ADMIN MODALS REMAIN UNCHANGED BELOW -->
 
     <!-- JOURNAL MODAL -->
     <div id="journal-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="journal-title">
