@@ -25,7 +25,7 @@
   const elPhotoCredit = document.getElementById('photo-credit');
   const elRain = document.getElementById('rain-effect');
   const elNext = document.getElementById('next-change');
-
+  const elAmPm = document.getElementById('ampm');
   // Menus & Buttons
   const btnSound = document.getElementById('btn-sound');
   const btnMusicMenu = document.getElementById('btn-music-menu');
@@ -271,6 +271,7 @@
     const m = Math.floor(focusTimeLeft / 60);
     const s = focusTimeLeft % 60;
     if (elTime) elTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (elAmPm) elAmPm.textContent = 'FOCUS';
   }
 
   // --- 5. QUOTES & CLOCK ---
@@ -377,36 +378,42 @@ function getFallbackQuote(date) {
   }
 
   async function performUpdate(force = false) {
-  if (focusMode) return; 
-  if (isUpdating && !force) return; 
-  isUpdating = true;
+    if (focusMode) return; 
+    if (isUpdating && !force) return; 
+    isUpdating = true;
 
-  const now = new Date();
-  const h = now.getHours();
-  const period = getPeriod(h);
+    const now = new Date();
+    const rawHours = now.getHours();
+    const minutes = now.getMinutes();
+    const period = getPeriod(rawHours);
 
-  if (force || period !== lastPeriod) {
-    lastPeriod = period;
-    detectClimate(); 
-    updateBackground(period);
-    autoSelectTrack(); 
+    if (force || period !== lastPeriod) {
+      lastPeriod = period;
+      detectClimate(); 
+      updateBackground(period);
+      autoSelectTrack(); 
+    }
+
+    // Instant local lookup from pre-processed dataset
+    const quoteData = getQuoteForTime(now);
+
+    // Warm, natural greeting
+    const greetings = ["Peaceful Night", "Good Morning", "Good Afternoon", "Good Evening", "Deep Work Night"];
+    const gIndex = rawHours < 5 ? 0 : rawHours < 12 ? 1 : rawHours < 17 ? 2 : rawHours < 22 ? 3 : 4;
+    if (elGreeting) elGreeting.textContent = greetings[gIndex];
+
+    // Update literary reading card
+    updateDisplay(quoteData, PERIODS_CONFIG[period].label);
+
+    // Update Prominent Timepiece
+    const hh = String(rawHours).padStart(2, '0');
+    const mm = String(minutes).padStart(2, '0');
+    if (elTime) elTime.textContent = `${hh}:${mm}`;
+    if (elAmPm) elAmPm.textContent = rawHours >= 12 ? 'PM' : 'AM';
+    if (elPeriod) elPeriod.textContent = `${PERIODS_CONFIG[period].label} Focus`;
+    
+    isUpdating = false;
   }
-
-  // Instant local lookup (Zero network latency)
-  const quoteData = getQuoteForTime(now);
-
-  const greetings = ["Good Night", "Good Morning", "Good Afternoon", "Good Evening", "Deep Work Night"];
-  const gIndex = h < 5 ? 0 : h < 12 ? 1 : h < 17 ? 2 : h < 22 ? 3 : 4;
-  if (elGreeting) elGreeting.textContent = greetings[gIndex];
-
-  updateDisplay(quoteData, PERIODS_CONFIG[period].label);
-  
-  const hh = String(h).padStart(2,'0');
-  const mm = String(now.getMinutes()).padStart(2,'0');
-  if (elTime) elTime.textContent = `${hh}:${mm}`;
-  
-  isUpdating = false;
-}
 
   function startClock() {
     const now = new Date();
