@@ -7,108 +7,168 @@
     script-src 'self';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
-    img-src 'self' https://images.unsplash.com https://*.unsplash.com https://raw.githubusercontent.com https://grainy-gradients.vercel.app;
-    media-src 'self';
+    img-src 'self' https://images.unsplash.com https://*.unsplash.com https://raw.githubusercontent.com data:;
+    media-src 'self' data: blob:;
     connect-src 'self' https://raw.githubusercontent.com;
     frame-src 'self' https://open.spotify.com;
   ">
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Minute Muse</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Minute Muse - A literary clock, ambient soundscape, and cozy study focus sanctuary." />
+  <title>Minute Muse — Literary Study Focus Sanctuary</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- EFFECTS -->
-  <div class="grain"></div>
-  <div class="rain" id="rain-effect"></div>
+  <!-- AMBIENT EFFECTS -->
+  <div class="grain" aria-hidden="true"></div>
+  <div class="rain" id="rain-effect" aria-hidden="true"></div>
 
-  <!-- SINGLE AUDIO PLAYER (Source set by JS) -->
+  <!-- AUDIO ENGINE -->
   <audio id="bgm-player" loop preload="auto"></audio>
 
   <main class="app" id="app-container">
     
     <header class="header-area">
       <h1 id="greeting">Hello, Traveler</h1>
-      <!-- SECRET TRIGGER: Click this 5 times to open Admin Mode -->
-      <div class="season-badge" id="season-badge">Detecting Season...</div>
+      <!-- Trigger: Click 5 times to toggle Admin Mode -->
+      <button class="season-badge" id="season-badge" title="Click 5 times for Admin mode">Detecting Climate…</button>
     </header>
 
-    <div class="card" id="quote-card">
+    <section class="card" id="quote-card" aria-label="Current Quote and Clock">
       <div class="meta">
-        <div class="time" id="time">--:--</div>
+        <div class="time" id="time" aria-live="polite">--:--</div>
         <div class="period" id="period">Loading…</div>
       </div>
 
       <blockquote class="quote" id="quote">Loading story…</blockquote>
       <cite class="author" id="author"></cite>
+      
       <div id="focus-controls" class="focus-controls hidden">
-        <button id="btn-focus-expand" class="btn-small" title="Fullscreen">⛶ Expand</button>
-        <button id="btn-focus-stop" class="btn-small" title="Stop">🛑 Stop</button>
-      </div>
-      <!-- TOOLBAR -->
-      <div class="toolbar">
-        <button id="btn-sound" class="tool-btn" title="Toggle Sound">
-          <span class="icon">🔇</span>
-        </button>
-        <button id="btn-spotify" class="tool-btn" title="Open Spotify">
-          <span class="icon">🟢</span> <!-- Green circle or use a Spotify SVG icon -->
-        </button>
-        <!-- NEW: Music Menu Trigger -->
-        <button id="btn-music-menu" class="tool-btn" title="Select Track">
-          <span class="icon">🎵</span>
-        </button>
-        <button id="btn-zen" class="tool-btn" title="Zen Mode">
-          <span class="icon">👁️</span>
-        </button>
-        <button id="btn-journal" class="tool-btn" title="Open Journal">
-          <span class="icon">✏️</span>
-        </button>
-        <button id="new-quote" class="tool-btn" title="New Vibe">
-          <span class="icon">↻</span>
-        </button>
-        <button id="btn-focus" class="tool-btn" title="Start Focus Timer">
-          <span class="icon">🍅</span>
-        </button>
+        <button id="btn-focus-expand" class="btn-small" title="Fullscreen Focus">⛶ Expand</button>
+        <button id="btn-focus-stop" class="btn-small" title="End Session">🛑 Stop</button>
       </div>
 
-      <!-- NEW: POPUP MUSIC MENU -->
-      <div id="music-menu" class="music-menu hidden">
+      <!-- TOOLBAR -->
+      <nav class="toolbar" aria-label="Quick Controls">
+        <button id="btn-sound" class="tool-btn" title="Toggle Sound" aria-label="Toggle Sound">
+          <span class="icon" aria-hidden="true">🔇</span>
+        </button>
+        <button id="btn-music-menu" class="tool-btn" title="Ambience Soundtracks" aria-label="Ambience Soundtracks">
+          <span class="icon" aria-hidden="true">🎵</span>
+        </button>
+        <button id="btn-spotify" class="tool-btn" title="Open Spotify Player" aria-label="Open Spotify Player">
+          <span class="icon" aria-hidden="true">🟢</span>
+        </button>
+        <button id="btn-focus" class="tool-btn" title="Start Focus Timer" aria-label="Start Focus Timer">
+          <span class="icon" aria-hidden="true">🍅</span>
+        </button>
+        <button id="btn-journal" class="tool-btn" title="Open Reflection Journal" aria-label="Open Reflection Journal">
+          <span class="icon" aria-hidden="true">✏️</span>
+        </button>
+        <button id="btn-zen" class="tool-btn" title="Toggle Zen Mode" aria-label="Toggle Zen Mode">
+          <span class="icon" aria-hidden="true">👁️</span>
+        </button>
+        <button id="new-quote" class="tool-btn" title="New Quote & Vibe" aria-label="New Quote & Vibe">
+          <span class="icon" aria-hidden="true">↻</span>
+        </button>
+      </nav>
+
+      <!-- MUSIC SELECTION POPUP -->
+      <div id="music-menu" class="music-menu hidden" role="menu" aria-label="Ambience Tracks">
         <div class="music-header">Select Ambience</div>
         <ul id="track-list">
-          <!-- Tracks injected by JS -->
+          <!-- Tracks injected via JS -->
         </ul>
       </div>
 
       <div class="next-change" id="next-change">Next page in 60s</div>
 
-      <div class="attribution">
+      <!-- ATTRIBUTION & LEGAL FOOTER -->
+      <footer class="attribution">
         <span id="photo-credit">Atmosphere via Unsplash</span>
-        <span class="separator">&bull;</span>
-        Quotes from <a href="https://github.com/JohannesNE/literature-clock" target="_blank">Literature Clock</a>
+        <span class="separator" aria-hidden="true">&bull;</span>
+        Quotes via <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a>
         <br>
-        <span style="font-size: 0.65rem; opacity: 0.7; margin-top: 5px; display: inline-block;">
+        <nav class="legal-links" aria-label="Legal & Information">
+          <button id="btn-open-credits" class="text-link-btn">Credits & Licenses</button> &bull;
           <a href="terms.html">Terms</a> &bull; 
           <a href="privacy.html">Privacy</a> &bull; 
           <a href="disclaimer.html">Disclaimer</a>
-        </span>
+        </nav>
+      </footer>
+    </section>
+
+    <!-- JOURNAL MODAL -->
+    <div id="journal-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="journal-title">
+      <div class="modal-card">
+        <h2 id="journal-title">Study Thoughts & Journal</h2>
+        <p class="modal-subtitle">Notes are stored purely on your device in local storage.</p>
+        <textarea id="journal-text" placeholder="Capture thoughts, study goals, or reflection on this quote…"></textarea>
+        <div class="modal-actions">
+          <button id="btn-close-journal" class="btn-primary">Save & Close</button>
+        </div>
       </div>
     </div>
 
-    <!-- JOURNAL OVERLAY -->
-    <div id="journal-overlay" class="overlay hidden">
+    <!-- FOCUS SETUP MODAL -->
+    <div id="focus-setup-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="focus-title">
       <div class="modal-card">
-        <h2>Your Thoughts</h2>
-        <textarea id="journal-text" placeholder="What does this quote make you feel?"></textarea>
-        <button id="btn-close-journal" class="btn-primary">Save & Close</button>
+        <h2 id="focus-title">Start Focus Session</h2>
+        <p class="modal-subtitle">Choose your deep work duration</p>
+        
+        <div class="input-group">
+          <input type="number" id="focus-input-min" value="25" min="1" max="180" aria-label="Focus duration in minutes">
+          <span>minutes</span>
+        </div>
+    
+        <div class="modal-actions-stacked">
+          <button id="btn-start-focus" class="btn-primary">Start Timer</button>
+          <button id="btn-cancel-focus" class="btn-text">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN-APP CREDITS & LICENSING MODAL -->
+    <div id="credits-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="credits-title">
+      <div class="modal-card modal-wide">
+        <h2 id="credits-title">Credits, Licensing & Legal Compliance</h2>
+        
+        <div class="credits-content">
+          <section class="credit-section">
+            <h3>🎵 Audio Tracks (Public Domain / CC0)</h3>
+            <p>All ambient tracks used in Minute Muse are dedicated to the public domain under the Creative Commons 0 (CC0) dedication:</p>
+            <ul class="credit-list">
+              <li><strong>Tropical Rain</strong> — pablodavilla (<a href="https://freesound.org/s/503167/" target="_blank" rel="noopener noreferrer">Freesound #503167</a>, CC0)</li>
+              <li><strong>Cozy Fireplace</strong> — true_killian (<a href="https://freesound.org/s/760474/" target="_blank" rel="noopener noreferrer">Freesound #760474</a>, CC0)</li>
+              <li><strong>Forest Birds 1</strong> — titi2 (<a href="https://freesound.org/s/567531/" target="_blank" rel="noopener noreferrer">Freesound #567531</a>, CC0)</li>
+              <li><strong>Forest Birds 2</strong> — sama66 (<a href="https://freesound.org/s/462137/" target="_blank" rel="noopener noreferrer">Freesound #462137</a>, CC0)</li>
+              <li><strong>Smooth Jazz</strong> — amandedou (<a href="https://freesound.org/s/317673/" target="_blank" rel="noopener noreferrer">Freesound #317673</a>, CC0)</li>
+            </ul>
+          </section>
+
+          <section class="credit-section">
+            <h3>📖 Literary Excerpts & Takedown</h3>
+            <p>Quotes are curated from the open-source <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a> project under Fair Use principles for transformative, educational display. If you are a copyright holder and wish to have an excerpt removed, see our <a href="terms.html#dmca">Takedown Policy</a>.</p>
+          </section>
+
+          <section class="credit-section">
+            <h3>📸 Photography</h3>
+            <p>Atmospheric photography is sourced through the <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash API</a>. Each image is dynamically credited to its respective photographer in the footer with referral links according to Unsplash API guidelines.</p>
+          </section>
+        </div>
+
+        <button id="btn-close-credits" class="btn-primary" style="margin-top:20px;">Close Credits</button>
       </div>
     </div>
 
     <!-- ADMIN OVERLAY -->
-    <div id="admin-overlay" class="overlay hidden">
+    <div id="admin-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="admin-title">
       <div class="modal-card">
-        <h2>🔧 Admin Control</h2>
-        <p>Force Location / Season</p>
-        <select id="admin-location-select">
+        <h2 id="admin-title">🔧 Environment Override</h2>
+        <p class="modal-subtitle">Force Location / Season for testing atmospheres</p>
+        <select id="admin-location-select" aria-label="Select climate override">
           <option value="auto">Auto Detect (Default)</option>
           <option value="tropical">Force Tropical (Singapore)</option>
           <option value="north_winter">Force North Winter (London)</option>
@@ -116,31 +176,20 @@
           <option value="south_summer">Force South Summer (Sydney)</option>
           <option value="south_winter">Force South Winter (Melbourne)</option>
         </select>
-        <button id="btn-close-admin" class="btn-primary" style="margin-top:10px;">Apply & Reload</button>
+        <button id="btn-close-admin" class="btn-primary" style="margin-top:15px;">Apply & Reload</button>
       </div>
     </div>
 
   </main>
-  <!-- Hidden Spotify Container -->
-  <div id="spotify-container" class="spotify-widget hidden">
-    <iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/4FXEpSey2daitaiyxORTko?utm_source=generator" width="100%" height="352" frameBorder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-    <button id="close-spotify" class="close-btn">×</button>
-  </div>
-  <div id="focus-setup-overlay" class="overlay hidden">
-    <div class="modal-card">
-      <h2>Start Focus Session</h2>
-      <p>How long do you want to focus?</p>
-      
-      <div class="input-group">
-        <input type="number" id="focus-input-min" value="25" min="1" max="180">
-        <span>minutes</span>
-      </div>
-  
-      <button id="btn-start-focus" class="btn-primary" style="margin-top:20px;">Start Timer</button>
-      <button id="btn-cancel-focus" class="btn-text" style="margin-top:10px;">Cancel</button>
-    </div>
-  </div>
-  <button id="exit-fullscreen-btn">Exit Fullscreen</button>
+
+  <!-- SPOTIFY WIDGET -->
+  <aside id="spotify-container" class="spotify-widget hidden" aria-label="Spotify Music Player">
+    <iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DX1uaml3UXYLk?utm_source=generator&si=db5ba0b8931c45b5" width="100%" height="352" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+    <button id="close-spotify" class="close-btn" aria-label="Close Spotify Player">×</button>
+  </aside>
+
+  <button id="exit-fullscreen-btn" aria-label="Exit Fullscreen Mode">Exit Fullscreen</button>
+
   <script src="script.js"></script>
 </body>
 </html>
