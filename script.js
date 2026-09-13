@@ -1,16 +1,16 @@
 /* 
-   MINUTE MUSE - FIXED & POLISHED
-   - Fixes 'focusMode not defined' crash
-   - Fixes Image Loading
-   - Integrates Timer, Audio, and Admin logic
+   MINUTE MUSE - CORE ENGINE (Phase 1)
+   - Legal Compliance & In-App Credits Integration
+   - Escape-key modal accessibility
+   - Mobile Viewport Friendly
 */
 
 (() => {
-  // 🎵 PLAYLIST CONFIGURATION
+  // 🎵 CC0 AUDIO REGISTRY
   const TRACKS = [
     { id: 'rain', name: 'Tropical Rain', file: 'audio/503167__pablodavilla__tropical_rain_01.wav', tags: ['tropical'] },
     { id: 'fire', name: 'Cozy Fireplace', file: 'audio/760474__true_killian__fireplace.m4a', tags: ['winter', 'north_winter', 'south_winter'] },
-    { id: 'nature', name: 'Forest Birds', file: 'audio/567531__titi2__silent-forest_birds_210410_0059.wav', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
+    { id: 'nature', name: 'Forest Birds 1', file: 'audio/567531__titi2__silent-forest_birds_210410_0059.wav', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
     { id: 'nature2', name: 'Forest Birds 2', file: 'audio/462137__sama66__forest-bird-1.wav', tags: ['summer', 'spring', 'north_summer', 'south_summer'] },
     { id: 'jazz', name: 'Smooth Jazz', file: 'audio/317673__amandedou__amande_3201.mp3', tags: ['night'] }
   ];
@@ -26,7 +26,7 @@
   const elRain = document.getElementById('rain-effect');
   const elNext = document.getElementById('next-change');
 
-  // Menus & Tools
+  // Menus & Buttons
   const btnSound = document.getElementById('btn-sound');
   const btnMusicMenu = document.getElementById('btn-music-menu');
   const elMusicMenu = document.getElementById('music-menu');
@@ -35,20 +35,23 @@
   const btnJournal = document.getElementById('btn-journal');
   const btnNew = document.getElementById('new-quote');
 
-  // Spotify
+  // Spotify Elements
   const btnSpotify = document.getElementById('btn-spotify');
   const elSpotify = document.getElementById('spotify-container');
   const btnCloseSpotify = document.getElementById('close-spotify');
   
-  // Journal Modal
+  // Modals
   const elJournalOverlay = document.getElementById('journal-overlay');
   const elJournalText = document.getElementById('journal-text');
   const btnCloseJournal = document.getElementById('btn-close-journal');
   
-  // Admin Modal
   const elAdminOverlay = document.getElementById('admin-overlay');
   const elAdminSelect = document.getElementById('admin-location-select');
   const btnCloseAdmin = document.getElementById('btn-close-admin');
+
+  const elCreditsOverlay = document.getElementById('credits-overlay');
+  const btnOpenCredits = document.getElementById('btn-open-credits');
+  const btnCloseCredits = document.getElementById('btn-close-credits');
 
   // Focus Timer Elements
   const btnFocus = document.getElementById('btn-focus');
@@ -74,7 +77,6 @@
   let adminClicks = 0; 
   let isUpdating = false;
   
-  // FOCUS STATE (Fixes ReferenceError)
   let focusMode = false;
   let focusTimeLeft = 0;
   let focusInterval = null;
@@ -88,11 +90,10 @@
   };
 
   const FALLBACK_TEMPLATES = [
-    "The clock showed {time}, and the world held its breath."
+    "The clock showed {time}, and the quiet room welcomed deep focus."
   ];
 
-  // --- 1. CLIMATE & ADMIN LOGIC ---
-
+  // --- 1. CLIMATE LOGIC ---
   function detectClimate() {
     const override = localStorage.getItem('minuteMuseAdminLocation');
     
@@ -101,7 +102,7 @@
       else if (override.includes('north')) { climateMode = 'north'; calculatedSeason = override.includes('winter') ? 'winter' : 'summer'; } 
       else if (override.includes('south')) { climateMode = 'south'; calculatedSeason = override.includes('winter') ? 'winter' : 'summer'; }
       
-      if(elSeasonBadge) elSeasonBadge.textContent = `🔧 ADMIN MODE: ${override.toUpperCase()}`;
+      if (elSeasonBadge) elSeasonBadge.textContent = `🔧 Admin: ${override.replace('_', ' ').toUpperCase()}`;
       return;
     }
 
@@ -119,15 +120,15 @@
       climateMode = detected;
       const month = new Date().getMonth();
 
-      if(elSeasonBadge) {
+      if (elSeasonBadge) {
         if (detected === 'tropical') {
           calculatedSeason = 'tropical';
-          elSeasonBadge.textContent = `Tropical Climate • ${city.replace(/_/g, ' ')}`;
+          elSeasonBadge.textContent = `Tropical • ${city.replace(/_/g, ' ')}`;
         } else {
           const isNorthWinter = [11, 0, 1].includes(month);
           const isLocalWinter = (detected === 'north') ? isNorthWinter : !isNorthWinter;
           calculatedSeason = isLocalWinter ? 'winter' : 'summer';
-          elSeasonBadge.textContent = `${detected === 'north' ? 'Northern' : 'Southern'} Hemisphere • ${city.replace(/_/g, ' ')}`;
+          elSeasonBadge.textContent = `${detected === 'north' ? 'Northern' : 'Southern'} • ${city.replace(/_/g, ' ')}`;
         }
       }
     } catch (e) {
@@ -137,43 +138,42 @@
   }
 
   // --- 2. AUDIO SYSTEM ---
-
   function initAudioMenu() {
-    if(!elTrackList) return;
+    if (!elTrackList) return;
     elTrackList.innerHTML = '';
     TRACKS.forEach(track => {
       const li = document.createElement('li');
       li.className = 'track-item';
       li.dataset.id = track.id;
-      li.innerHTML = `<span>${track.name}</span>`;
+      li.innerHTML = `<span>${track.name}</span><small style="opacity:0.6;font-size:0.75rem;">CC0</small>`;
       li.addEventListener('click', () => {
         playTrack(track.id);
-        if(elMusicMenu) elMusicMenu.classList.add('hidden');
+        if (elMusicMenu) elMusicMenu.classList.add('hidden');
       });
       elTrackList.appendChild(li);
     });
   }
 
   function playTrack(trackId) {
-    if(!audioPlayer) return;
+    if (!audioPlayer) return;
     const track = TRACKS.find(t => t.id === trackId);
     if (!track) return;
     if (currentTrackId === trackId && !audioPlayer.paused) return;
 
     currentTrackId = trackId;
     audioPlayer.src = track.file;
-    audioPlayer.volume = 0.3; 
+    audioPlayer.volume = 0.35;
     
     document.querySelectorAll('.track-item').forEach(el => {
       el.classList.toggle('active', el.dataset.id === trackId);
     });
 
-    if (!isMuted) audioPlayer.play().catch(e => console.log("Autoplay blocked"));
+    if (!isMuted) {
+      audioPlayer.play().catch(() => console.log("Audio autoplay prevented by browser."));
+    }
     
-    if(track.tags.includes('tropical') || track.id === 'rain') {
-      if(elRain) elRain.style.opacity = '0.4';
-    } else {
-      if(elRain) elRain.style.opacity = '0';
+    if (elRain) {
+      elRain.style.opacity = (track.tags.includes('tropical') || track.id === 'rain') ? '0.4' : '0';
     }
   }
 
@@ -186,25 +186,26 @@
   }
 
   function toggleMute() {
-    if(!audioPlayer) return;
+    if (!audioPlayer) return;
     isMuted = !isMuted;
     if (isMuted) {
       audioPlayer.pause();
-      if(btnSound) btnSound.innerHTML = '<span class="icon">🔇</span>';
+      if (btnSound) btnSound.innerHTML = '<span class="icon" aria-hidden="true">🔇</span>';
     } else {
-      audioPlayer.play();
-      if(btnSound) btnSound.innerHTML = '<span class="icon">🔊</span>';
+      audioPlayer.play().catch(() => {});
+      if (btnSound) btnSound.innerHTML = '<span class="icon" aria-hidden="true">🔊</span>';
     }
   }
 
-  // --- 3. DATA LOADING ---
-
+  // --- 3. BACKGROUND IMAGES ---
   async function loadImages() {
     try {
-      const res = await fetch(`images.json?t=${new Date().getTime()}`);
+      const res = await fetch(`images.json?t=${Date.now()}`);
       if (!res.ok) throw new Error("JSON not found");
       imageData = await res.json();
-    } catch (e) { console.warn("Fallback mode - Image JSON missing"); }
+    } catch (e) {
+      console.warn("Using fallback gradient - images.json not available");
+    }
   }
 
   function updateBackground(period) {
@@ -212,35 +213,33 @@
       const images = imageData[climateMode][period];
       const imgObj = images[Math.floor(Math.random() * images.length)];
       
-      if(imgObj && imgObj.url) {
+      if (imgObj && imgObj.url) {
         const img = new Image();
-        img.onload = () => { document.body.style.backgroundImage = `url("${imgObj.url}")`; };
+        img.onload = () => {
+          document.body.style.backgroundImage = `url("${imgObj.url}")`;
+        };
         img.src = imgObj.url;
-        if(elPhotoCredit) elPhotoCredit.innerHTML = `Photo by <a href="${imgObj.link}?utm_source=MinuteMuse&utm_medium=referral" target="_blank">${imgObj.name}</a> on <a href="https://unsplash.com/?utm_source=MinuteMuse&utm_medium=referral" target="_blank">Unsplash</a>`;
+        if (elPhotoCredit) {
+          elPhotoCredit.innerHTML = `Photo by <a href="${imgObj.link}?utm_source=MinuteMuse&utm_medium=referral" target="_blank" rel="noopener noreferrer">${imgObj.name}</a> on <a href="https://unsplash.com/?utm_source=MinuteMuse&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a>`;
+        }
         return;
       }
     }
-    // Fallback if image fails or JSON missing
-    document.body.style.backgroundImage = `linear-gradient(to bottom, #0f2027, #2c5364)`;
+    document.body.style.backgroundImage = `linear-gradient(to bottom, #0f2027, #203a43, #2c5364)`;
   }
 
   // --- 4. FOCUS TIMER LOGIC ---
-
   function startFocusTimer(seconds) {
     focusMode = true;
     focusTimeLeft = seconds;
     
-    // UI Updates
-    if(elFocusControls) elFocusControls.classList.remove('hidden');
-    if(elPeriod) elPeriod.textContent = "FOCUS SESSION";
-    
-    // Disable distraction buttons
-    if(btnNew) { btnNew.style.pointerEvents = 'none'; btnNew.style.opacity = '0.5'; }
+    if (elFocusControls) elFocusControls.classList.remove('hidden');
+    if (elPeriod) elPeriod.textContent = "FOCUS SESSION";
+    if (btnNew) { btnNew.style.pointerEvents = 'none'; btnNew.style.opacity = '0.4'; }
 
     updateTimerDisplay();
 
-    // Loop
-    if(focusInterval) clearInterval(focusInterval);
+    if (focusInterval) clearInterval(focusInterval);
     focusInterval = setInterval(() => {
       focusTimeLeft--;
       updateTimerDisplay();
@@ -253,32 +252,28 @@
 
   function stopFocusTimer() {
     focusMode = false;
-    if(focusInterval) clearInterval(focusInterval);
+    if (focusInterval) clearInterval(focusInterval);
     document.body.classList.remove('focus-fullscreen');
     
-    // UI Reset
-    if(elFocusControls) elFocusControls.classList.add('hidden');
-    if(btnNew) { btnNew.style.pointerEvents = 'auto'; btnNew.style.opacity = '1'; }
+    if (elFocusControls) elFocusControls.classList.add('hidden');
+    if (btnNew) { btnNew.style.pointerEvents = 'auto'; btnNew.style.opacity = '1'; }
     
-    // Force immediate update to return to real clock
     isUpdating = false;
     performUpdate(true); 
   }
 
   function timerFinished() {
     stopFocusTimer();
-    // Simple alert
-    alert("Focus Session Complete!");
+    alert("Focus session complete! Take a deep breath.");
   }
 
   function updateTimerDisplay() {
     const m = Math.floor(focusTimeLeft / 60);
     const s = focusTimeLeft % 60;
-    if(elTime) elTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    if (elTime) elTime.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   }
 
-  // --- 5. CORE LOOP ---
-
+  // --- 5. QUOTES & CLOCK ---
   async function fetchRealQuote(date) {
     const hh = String(date.getHours()).padStart(2, '0');
     const mm = String(date.getMinutes()).padStart(2, '0');
@@ -287,32 +282,43 @@
       const res = await fetch(url);
       if (!res.ok) throw new Error('No quote');
       return await res.json();
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   }
 
   function getFallbackQuote(date) {
     const t = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const tmpl = FALLBACK_TEMPLATES[0];
-    return { text: tmpl.replace("{time}", t), author: "The Narrator", title: "Life" };
+    return { text: tmpl.replace("{time}", t), author: "Minute Muse", title: "Focus Room" };
   }
 
   function updateDisplay(quoteData, periodLabel) {
-    if(!elQuote || !elAuthor) return;
+    if (!elQuote || !elAuthor) return;
     elQuote.classList.add('fade-out');
     elAuthor.classList.add('fade-out');
+    
     setTimeout(() => {
-      let qText = quoteData.text ? quoteData.text.replace(/<br>/g, ' ') : "Thinking..."; 
+      let qText = quoteData.text ? quoteData.text.replace(/<br>/g, ' ') : "Reading…"; 
       elQuote.innerHTML = `“${qText}”`;
-      if (quoteData.title) elAuthor.innerHTML = `<span class="author-name">${quoteData.author}</span><br><em>${quoteData.title}</em>`;
-      else elAuthor.textContent = quoteData.author || "Unknown";
+      if (quoteData.title) {
+        elAuthor.innerHTML = `<span class="author-name">${quoteData.author}</span><br><em>${quoteData.title}</em>`;
+      } else {
+        elAuthor.textContent = quoteData.author || "Unknown";
+      }
       
-      // Only show period label if NOT in focus mode
-      if(elPeriod && !focusMode) elPeriod.textContent = periodLabel;
+      if (elPeriod && !focusMode) elPeriod.textContent = periodLabel;
       
-      elQuote.classList.remove('fade-out'); elAuthor.classList.remove('fade-out');
-      elQuote.classList.add('fade-in'); elAuthor.classList.add('fade-in');
-      setTimeout(() => { elQuote.classList.remove('fade-in'); elAuthor.classList.remove('fade-in'); }, 800);
-    }, 500);
+      elQuote.classList.remove('fade-out');
+      elAuthor.classList.remove('fade-out');
+      elQuote.classList.add('fade-in');
+      elAuthor.classList.add('fade-in');
+      
+      setTimeout(() => {
+        elQuote.classList.remove('fade-in');
+        elAuthor.classList.remove('fade-in');
+      }, 600);
+    }, 400);
   }
 
   function getPeriod(h) {
@@ -323,11 +329,8 @@
     return 'night';
   }
 
-  // Main update function
   async function performUpdate(force = false) {
-    // 🛑 BLOCK UPDATES IF TIMER IS RUNNING
     if (focusMode) return; 
-    
     if (isUpdating && !force) return; 
     isUpdating = true;
 
@@ -346,141 +349,170 @@
       currentQuoteData = await fetchRealQuote(now);
     }
     
-    const g = h < 5 ? "Good Night" : h < 12 ? "Good Morning" : h < 17 ? "Good Afternoon" : h < 22 ? "Good Evening" : "Sleep Well";
-    if(elGreeting) elGreeting.textContent = g;
+    const greetings = ["Good Night", "Good Morning", "Good Afternoon", "Good Evening", "Deep Work Night"];
+    const gIndex = h < 5 ? 0 : h < 12 ? 1 : h < 17 ? 2 : h < 22 ? 3 : 4;
+    if (elGreeting) elGreeting.textContent = greetings[gIndex];
 
     let finalQuote;
     if (currentQuoteData && currentQuoteData.length) {
       const r = currentQuoteData[Math.floor(Math.random() * currentQuoteData.length)];
       finalQuote = {
         text: `${r.quote_first} ${r.quote_time_case} ${r.quote_last}`,
-        author: r.author, title: r.title
+        author: r.author,
+        title: r.title
       };
     } else {
       finalQuote = getFallbackQuote(now);
     }
 
     updateDisplay(finalQuote, PERIODS_CONFIG[period].label);
-    const hh = String(h).padStart(2,'0'); const mm = String(now.getMinutes()).padStart(2,'0');
-    if(elTime) elTime.textContent = `${hh}:${mm}`;
+    const hh = String(h).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    if (elTime) elTime.textContent = `${hh}:${mm}`;
     
     isUpdating = false;
   }
 
   function startClock() {
     const now = new Date();
-    if(elNext) elNext.textContent = `Next page in ${60 - now.getSeconds()}s`;
+    if (elNext) elNext.textContent = `Next page in ${60 - now.getSeconds()}s`;
 
     setInterval(() => {
       const currentNow = new Date();
       const s = currentNow.getSeconds();
       
-      // Only update countdown if NOT in focus mode (optional, but cleaner)
-      if(elNext && !focusMode) elNext.textContent = `Next page in ${60 - s}s`;
-
-      if(s === 0) {
-        performUpdate();
-      }
+      if (elNext && !focusMode) elNext.textContent = `Next page in ${60 - s}s`;
+      if (s === 0) performUpdate();
     }, 1000);
   }
 
-  // --- INIT & LISTENERS ---
+  // --- 6. EVENT INITIALIZATION ---
+  function closeAllModals() {
+    [elJournalOverlay, elFocusOverlay, elAdminOverlay, elCreditsOverlay].forEach(modal => {
+      if (modal) modal.classList.add('hidden');
+    });
+    if (elMusicMenu) elMusicMenu.classList.add('hidden');
+  }
 
   (async function init() {
     startClock();
     initAudioMenu();
     
-    // Listeners
-    if(btnSound) btnSound.addEventListener('click', toggleMute);
-    if(btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
-    if(btnNew) btnNew.addEventListener('click', () => performUpdate(true));
+    if (btnSound) btnSound.addEventListener('click', toggleMute);
+    if (btnZen) btnZen.addEventListener('click', () => document.body.classList.toggle('zen-active'));
+    if (btnNew) btnNew.addEventListener('click', () => performUpdate(true));
     
-    if(btnMusicMenu && elMusicMenu) {
-        btnMusicMenu.addEventListener('click', (e) => { e.stopPropagation(); elMusicMenu.classList.toggle('hidden'); });
-        document.addEventListener('click', (e) => {
-            if (!elMusicMenu.contains(e.target) && !btnMusicMenu.contains(e.target)) elMusicMenu.classList.add('hidden');
-        });
+    // Music Menu
+    if (btnMusicMenu && elMusicMenu) {
+      btnMusicMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elMusicMenu.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!elMusicMenu.contains(e.target) && !btnMusicMenu.contains(e.target)) {
+          elMusicMenu.classList.add('hidden');
+        }
+      });
     }
 
-    // Spotify
+    // Spotify Player
     if (btnSpotify && elSpotify) {
       btnSpotify.addEventListener('click', () => {
-        if(elMusicMenu) elMusicMenu.classList.add('hidden');
-        if(audioPlayer && !audioPlayer.paused) toggleMute(); // Pause internal audio
+        if (elMusicMenu) elMusicMenu.classList.add('hidden');
+        if (audioPlayer && !audioPlayer.paused) toggleMute();
         elSpotify.classList.remove('hidden');
       });
-      if(btnCloseSpotify) btnCloseSpotify.addEventListener('click', () => elSpotify.classList.add('hidden'));
+      if (btnCloseSpotify) btnCloseSpotify.addEventListener('click', () => elSpotify.classList.add('hidden'));
     }
 
-    // Journal
-    if(btnJournal && elJournalOverlay) {
-        btnJournal.addEventListener('click', () => {
-          elJournalText.value = localStorage.getItem('minuteMuseJournal') || "";
-          elJournalOverlay.classList.remove('hidden');
-        });
-        btnCloseJournal.addEventListener('click', () => {
-          localStorage.setItem('minuteMuseJournal', elJournalText.value);
-          elJournalOverlay.classList.add('hidden');
-        });
+    // Journal Modal
+    if (btnJournal && elJournalOverlay) {
+      btnJournal.addEventListener('click', () => {
+        elJournalText.value = localStorage.getItem('minuteMuseJournal') || "";
+        elJournalOverlay.classList.remove('hidden');
+        elJournalText.focus();
+      });
+      btnCloseJournal.addEventListener('click', () => {
+        localStorage.setItem('minuteMuseJournal', elJournalText.value);
+        elJournalOverlay.classList.add('hidden');
+      });
     }
-    
-    // Admin
-    if(elSeasonBadge) {
-        elSeasonBadge.addEventListener('click', () => {
-           adminClicks++;
-           if (adminClicks >= 5) {
-               adminClicks = 0;
-               if(elAdminSelect) elAdminSelect.value = localStorage.getItem('minuteMuseAdminLocation') || 'auto';
-               if(elAdminOverlay) elAdminOverlay.classList.remove('hidden');
-           }
-        });
+
+    // Credits & Legal Modal
+    if (btnOpenCredits && elCreditsOverlay) {
+      btnOpenCredits.addEventListener('click', () => elCreditsOverlay.classList.remove('hidden'));
     }
-    if(btnCloseAdmin) {
-        btnCloseAdmin.addEventListener('click', () => {
-            const val = elAdminSelect.value;
-            localStorage.setItem('minuteMuseAdminLocation', val);
-            elAdminOverlay.classList.add('hidden');
-            performUpdate(true); 
-        });
+    if (btnCloseCredits && elCreditsOverlay) {
+      btnCloseCredits.addEventListener('click', () => elCreditsOverlay.classList.add('hidden'));
+    }
+
+    // Admin Secret Click (5 taps)
+    if (elSeasonBadge) {
+      elSeasonBadge.addEventListener('click', () => {
+        adminClicks++;
+        if (adminClicks >= 5) {
+          adminClicks = 0;
+          if (elAdminSelect) elAdminSelect.value = localStorage.getItem('minuteMuseAdminLocation') || 'auto';
+          if (elAdminOverlay) elAdminOverlay.classList.remove('hidden');
+        }
+      });
+    }
+    if (btnCloseAdmin) {
+      btnCloseAdmin.addEventListener('click', () => {
+        localStorage.setItem('minuteMuseAdminLocation', elAdminSelect.value);
+        elAdminOverlay.classList.add('hidden');
+        performUpdate(true); 
+      });
     }
 
     // Focus Timer
-    if(btnFocus) {
-        btnFocus.addEventListener('click', () => {
-            if(focusMode) return; // Do nothing if running
-            if(elFocusOverlay) {
-                elFocusOverlay.classList.remove('hidden');
-                if(inpFocusMin) inpFocusMin.focus();
-            }
-        });
+    if (btnFocus && elFocusOverlay) {
+      btnFocus.addEventListener('click', () => {
+        if (focusMode) return;
+        elFocusOverlay.classList.remove('hidden');
+        if (inpFocusMin) inpFocusMin.focus();
+      });
     }
-    if(btnStartFocus) {
-        btnStartFocus.addEventListener('click', () => {
-            const mins = parseInt(inpFocusMin.value) || 25;
-            startFocusTimer(mins * 60);
-            elFocusOverlay.classList.add('hidden');
-        });
+    if (btnStartFocus) {
+      btnStartFocus.addEventListener('click', () => {
+        const mins = parseInt(inpFocusMin.value) || 25;
+        startFocusTimer(mins * 60);
+        elFocusOverlay.classList.add('hidden');
+      });
     }
-    if(btnCancelFocus) btnCancelFocus.addEventListener('click', () => elFocusOverlay.classList.add('hidden'));
-    if(btnFocusStop) btnFocusStop.addEventListener('click', stopFocusTimer);
-    
-    if(btnFocusExpand) btnFocusExpand.addEventListener('click', () => document.body.classList.add('focus-fullscreen'));
-    if(btnExitFullscreen) btnExitFullscreen.addEventListener('click', () => document.body.classList.remove('focus-fullscreen'));
+    if (btnCancelFocus) btnCancelFocus.addEventListener('click', () => elFocusOverlay.classList.add('hidden'));
+    if (btnFocusStop) btnFocusStop.addEventListener('click', stopFocusTimer);
+    if (btnFocusExpand) btnFocusExpand.addEventListener('click', () => document.body.classList.add('focus-fullscreen'));
+    if (btnExitFullscreen) btnExitFullscreen.addEventListener('click', () => document.body.classList.remove('focus-fullscreen'));
+
+    // Global Keybinds
     document.addEventListener('keydown', (e) => {
-        if (e.key === "Escape" && document.body.classList.contains('focus-fullscreen')) {
+      if (e.key === "Escape") {
+        if (document.body.classList.contains('focus-fullscreen')) {
           document.body.classList.remove('focus-fullscreen');
+        } else {
+          closeAllModals();
         }
+      }
+      if (e.code === 'Space' && e.target === document.body && !focusMode) {
+        e.preventDefault();
+        performUpdate(true);
+      }
     });
 
-    window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') { e.preventDefault(); performUpdate(true); }
+    // Close overlays by clicking backdrop
+    [elJournalOverlay, elFocusOverlay, elAdminOverlay, elCreditsOverlay].forEach(overlay => {
+      if (overlay) {
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) overlay.classList.add('hidden');
+        });
+      }
     });
 
-    // Load Data
+    // Load initial data
     await loadImages(); 
     detectClimate();
     await performUpdate(true);
-
   })();
 
 })();
