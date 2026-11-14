@@ -10,7 +10,8 @@ git clone https://github.com/PxlPau/Minute-Muse.git
 cd Minute-Muse
 npm install        # jsdom, for the test harness only
 npm run serve      # http://localhost:8000
-npm test           # app + mixer suites, in a headless DOM
+npm test           # app + mixer + resilience suites, in a headless DOM
+npm run test:minutes # the app suite pinned to ten awkward minutes of the day
 ```
 
 There is no build step and no bundler. Edit a file, reload the page.
@@ -40,7 +41,17 @@ There is no build step and no bundler. Edit a file, reload the page.
 
 1. Branch from `main` with a descriptive name.
 2. Keep the change focused; small diffs get read properly.
-3. Run `npm test` — both suites must stay green.
+3. Run `npm test` — every suite must stay green.
+
+## A note on time-dependent tests
+
+The reader shows a passage chosen from the current minute's candidates, and the
+collection contains very short entries ("7.40 a.m. Have breakfast."). Never
+assert on the *length* of what the reader renders — assert on its structure
+(quotes, byline, one highlighted time phrase). Use the helpers in
+`tools/assertions.mjs`, and if you touch anything time-sensitive, run
+`npm run test:minutes`, which pins the clock to the minutes that once caused a
+flaky build.
 4. If you change behaviour, update the README or the in-app copy that describes it.
 
 ## Adding a sound

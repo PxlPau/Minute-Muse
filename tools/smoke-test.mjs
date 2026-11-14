@@ -8,6 +8,7 @@
    ========================================================================== */
 
 import { startServer, installDom, projectRootUrl, teardown } from './jsdom-env.mjs';
+import { assertPassageRendered } from './assertions.mjs';
 
 let failures = 0;
 const results = [];
@@ -57,15 +58,21 @@ await check('clock renders a real time', () => {
 });
 
 await check('reader renders a passage with an author', () => {
-  const quote = $('#quote').textContent.trim();
-  assert(quote.length > 40, `quote too short: "${quote}"`);
-  assert($('#author').textContent.trim().length > 1, 'author missing');
+  // Structure, not length: the collection legitimately contains very short
+  // diary-style entries such as "7.40 a.m. Have breakfast." (see assertions.mjs).
+  const { text, author } = assertPassageRendered($);
+  assert(author.length >= 2, `author missing in ${JSON.stringify(text.slice(0, 60))}`);
 });
 
 await check('the highlighted minute is marked exactly once', () => {
-  const html = $('#quote').innerHTML;
-  const text = $('#quote').textContent;
-  assert((html.match(/class="time-highlight"/g) || []).length <= 1, 'multiple highlights');
+  // assertPassageRendered already proves exactly one highlight is present.
+  // What remains worth checking is that the highlighted text really is the
+  // passage's own time phrase, and that no markup escaped into the copy.
+  const { text } = assertPassageRendered($);
+  const highlighted = $('#quote').querySelector('.time-highlight');
+  assert(highlighted, 'no highlight element');
+  assert(highlighted.textContent.trim().length > 0, 'the highlight is empty');
+  assert(text.includes(highlighted.textContent), 'the highlight is not part of the visible passage');
   assert(!text.includes('<span'), 'markup leaked into text');
 });
 
@@ -80,6 +87,79 @@ await check('every minute of the day resolves to a passage', () => {
     }
   }
   assert(missing === 0, `${missing} minutes have no passage`);
+});
+
+await check('every passage in the collection renders cleanly', () => {
+  // The single random draw above only ever exercises one minute. This walks the
+  // entire collection through the real renderer so short entries, unusual
+  // punctuation and missing time phrases are all covered — deterministically.
+  const { passages } = api;
+  const problems = [];
+  let rendered = 0;
+  let highlighted = 0;
+
+  for (const [minute, entries] of Object.entries(passages.db || {})) {
+    for (const entry of entries) {
+      rendered += 1;
+      const { html, plain } = passages.render(entry);
+
+      if (!plain || !plain.trim()) {
+        problems.push(`${minute}: empty passage`);
+        continue;
+      }
+      if (!html || !html.trim()) {
+        problems.push(`${minute}: empty markup`);
+        continue;
+      }
+      if (/<script|onerror=|onload=/i.test(html)) {
+        problems.push(`${minute}: unescaped markup leaked through`);
+      }
+      if (/&lt;script/i.test(html)) {
+        problems.push(`${minute}: entity-escaped script tag suggests double encoding`);
+      }
+
+      const marks = html.match(/class="time-highlight"/g) || [];
+      if (marks.length > 1) problems.push(`${minute}: ${marks.length} highlights`);
+      if (marks.length === 1) {
+        highlighted += 1;
+        // The highlighted span must contain real text, never an empty tag.
+        const inner = html.match(/class="time-highlight">([^<]*)</);
+        if (!inner || !inner[1].trim()) problems.push(`${minute}: empty highlight`);
+      }
+
+      // Stripping every tag must give back exactly the passage, character for
+      // character — this catches a highlight that duplicated or dropped text.
+      const stripped = html.replace(/<[^>]+>/g, '');
+      if (stripped !== escapeForCompare(plain)) {
+        problems.push(`${minute}: rendered text differs from the source passage`);
+      }
+    }
+  }
+
+  assert(rendered > 3000, `only ${rendered} passages were checked`);
+  assert(highlighted > rendered * 0.5, `only ${highlighted}/${rendered} passages highlighted their minute`);
+  assert(problems.length === 0, `${problems.length} problems, first: ${problems.slice(0, 3).join(' | ')}`);
+});
+
+await check('the shortest passages still render as real quotes', () => {
+  // Regression guard for the flake this suite used to have: a 16-character
+  // diary entry is legitimate content, and it must reach the reader intact.
+  const { passages, reader } = api;
+  let shortest = null;
+  for (const [minute, entries] of Object.entries(passages.db || {})) {
+    for (const entry of entries) {
+      if (!shortest || entry.quote.length < shortest.quote.length) shortest = { ...entry, key: minute };
+    }
+  }
+  assert(shortest, 'the collection is empty');
+  assert(shortest.quote.length > 0, 'a passage is empty');
+
+  reader.show({ ...shortest, minute: shortest.key }, { animate: false });
+  const { text } = assertPassageRendered($, { allowNoHighlight: !shortest.timeCase });
+  assert(text.slice(1, -1).trim() === shortest.quote.trim(), 'the shortest passage was altered on its way to the screen');
+
+  // Restore the live reading so later checks see the real clock again.
+  reader.renderNow({ animate: false });
 });
 
 await check('library search returns results', () => {
@@ -324,6 +404,16 @@ await check('erasing data clears every store', async () => {
 });
 
 /* -------------------------------------------------------------------------- */
+
+/** Mirror of the app's escaping, for comparing rendered text to its source. */
+function escapeForCompare(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 const pad = (label) => label.padEnd(52, '.');
 console.log('\n  Minute Muse — smoke test\n');
