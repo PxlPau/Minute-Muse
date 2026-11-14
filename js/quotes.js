@@ -20,6 +20,29 @@ export const QUOTE_STATE = {
   error: 'error',
 };
 
+/**
+ * Drop repeated passages inside a single minute.
+ *
+ * The source collection contains occasional exact duplicates: 09:20 lists the
+ * same Wodehouse sentence twice, under the same author and title. The reader
+ * steps through the candidates one by one, so a duplicate would show the same
+ * passage twice in a row — and a "next passage" button that returns the same
+ * words is a bug, not a feature. Keying on quote + author + title keeps
+ * genuinely distinct entries that happen to share a sentence (two books can
+ * both say "It was 9.20").
+ */
+function dedupe(entries) {
+  const seen = new Set();
+  const unique = [];
+  for (const entry of entries) {
+    const identity = `${entry.quote}\u0000${entry.author}\u0000${entry.title}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    unique.push(entry);
+  }
+  return unique;
+}
+
 class PassageEngine {
   constructor() {
     this.db = null;
@@ -43,13 +66,15 @@ class PassageEngine {
         if (!Array.isArray(entries)) continue;
         const minutes = entries.filter((entry) => entry && typeof entry.quote === 'string' && entry.quote.trim());
         if (!minutes.length) continue;
-        cleaned[key] = minutes.map((entry) => ({
-          quote: entry.quote.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim(),
-          author: (entry.author || 'Unknown').trim(),
-          title: (entry.title || '').trim(),
-          timeCase: (entry.time_case || '').trim(),
-        }));
-        total += minutes.length;
+        cleaned[key] = dedupe(
+          minutes.map((entry) => ({
+            quote: entry.quote.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim(),
+            author: (entry.author || 'Unknown').trim(),
+            title: (entry.title || '').trim(),
+            timeCase: (entry.time_case || '').trim(),
+          })),
+        );
+        total += cleaned[key].length;
       }
 
       this.db = cleaned;

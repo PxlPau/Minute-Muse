@@ -356,19 +356,110 @@ await check('a session that ended moments ago still counts', async () => {
   timerSignal.set({ ...timerSignal.value, status: 'idle', phase: 'focus', round: 1, endsAt: null, remainingSec: null });
 });
 
-await check('stepping through a minute never repeats itself', async () => {
-  const { reader } = api;
-  const { passages } = api;
-  const key = passages.keyFor();
-  reader.renderNow({ animate: false });
+/**
+ * Hold the clock still while a check runs.
+ *
+ * The app turns the page on its own second-hand tick. That is the behaviour we
+ * want in production, but in a test it means a page turn can land in the middle
+ * of a check and change which minute is on screen — the source of this suite's
+ * one genuinely random failure. Stopping the clock keeps each check talking
+ * about the minute it chose, on every run.
+ */
+async function withClockStopped(fn) {
+  const { clock } = api;
+  const wasRunning = Boolean(clock?.interval);
+  clock?.stop();
+  try {
+    return await fn();
+  } finally {
+    // start() would attach a second visibility listener; restart the interval
+    // the clock was already using so the app is left exactly as it was found.
+    if (wasRunning) clock.interval = window.setInterval(() => clock.loop(), 1000);
+  }
+}
+
+await check('stepping through a minute never repeats itself', () => withClockStopped(async () => {
+  const { reader, passages } = api;
+  // Pick a minute with several passages rather than whatever the wall clock
+  // happens to be showing: the check must exercise stepping even at minutes that
+  // only ever hold one passage.
+  const key = Object.keys(passages.db).find((minute) => passages.db[minute].length >= 3);
+  assert(key, 'no minute holds several passages');
   const pool = passages.candidates(key);
-  const seenQuotes = [];
+  // Deliberately not `passages.pick()`: it is random, and if it happened to land
+  // on the passage this walk will reach on its last press the check would fail
+  // for reasons that have nothing to do with stepping. Start from a passage the
+  // walk cannot reach in three presses.
+  const start = pool.findIndex((entry) => !pool.slice(0, 3).includes(entry));
+  assert(start >= 0, 'the chosen minute has too few distinct passages');
+  reader.show({ ...pool[start], key, minute: key, total: pool.length }, { animate: false });
+  const seenQuotes = [reader.current.quote];
   for (let i = 0; i < Math.min(pool.length, 3); i += 1) {
     reader.advance();
     await new Promise((resolve) => setTimeout(resolve, 300));
+    assert(reader.current?.key === key, `the minute changed mid-step (${reader.current?.key})`);
     seenQuotes.push(reader.current.quote);
   }
   assert(new Set(seenQuotes).size === seenQuotes.length, `a passage repeated: ${seenQuotes.length} presses`);
+}));
+
+await check('a page turn mid-step never repeats itself', () => withClockStopped(() => {
+  // Regression guard for the flake in this suite. The clock turns the page once
+  // a minute, so it can land between two presses; the reader used to keep a bare
+  // array index across that turn and step straight back onto the same passage.
+  // (The clock is stopped here so the page turn under test is the one we stage.)
+  const { reader, passages } = api;
+  const start = Object.keys(passages.db).find((minute) => passages.db[minute].length >= 3);
+  const turn = Object.keys(passages.db).find(
+    (minute) => passages.db[minute].length === 2 && passages.db[minute][0].quote !== passages.db[minute][1].quote,
+  );
+  assert(start && turn, 'need a three-passage and a two-passage minute');
+
+  // Deliberately not `passages.pick()`: it is random, and this check must fail
+  // every time the bug is present rather than one time in three.
+  const show = (minute, index) => reader.show(
+    { ...passages.candidates(minute)[index], key: minute, minute, total: passages.candidates(minute).length },
+    { animate: false },
+  );
+
+  // Walk through *every* passage of the previous minute and then roll over, so
+  // whichever stepping position a page turn could leave behind is covered. A
+  // forward step from a stale index wraps onto whichever passage the shorter
+  // list happens to hold at that spot — sometimes the one already on screen.
+  const startPool = passages.candidates(start);
+  for (let carried = -1; carried < startPool.length; carried += 1) {
+    show(start, carried < 0 ? 0 : carried);
+    reader.seenIndex = carried; // the position a page turn would leave behind
+
+    show(turn, 1);
+    const showing = reader.current.quote;
+    reader.advance();
+    assert(
+      reader.current.quote !== showing,
+      `a page turn (carrying position ${carried}) showed the same passage again: ${JSON.stringify(showing.slice(0, 40))}`,
+    );
+  }
+
+  // And it must keep moving rather than sticking on one entry for ever.
+  show(turn, 0);
+  const visited = new Set();
+  for (let press = 0; press < 6; press += 1) {
+    reader.advance();
+    visited.add(reader.current.quote);
+  }
+  assert(visited.size > 1, 'stepping stalled on a single passage');
+}));
+
+await check('no minute lists the same passage twice', () => {
+  // The collection ships occasional exact duplicates (09:20 listed the same
+  // Wodehouse sentence twice), which made "next passage" a no-op there.
+  const { passages } = api;
+  const offenders = [];
+  for (const [minute, entries] of Object.entries(passages.db)) {
+    const identities = entries.map((entry) => `${entry.quote}\u0000${entry.author}\u0000${entry.title}`);
+    if (new Set(identities).size !== identities.length) offenders.push(minute);
+  }
+  assert(offenders.length === 0, `duplicate passages in ${offenders.slice(0, 5).join(', ')}`);
 });
 
 await check('a minute with one passage borrows its nearest neighbour', () => {
@@ -386,6 +477,16 @@ await check('a minute with one passage borrows its nearest neighbour', () => {
   const before = reader.current.quote;
   reader.advance();
   assert(reader.current.quote !== before, 'single-passage minute repeated itself');
+
+  // The minutes where the nearest neighbour happens to contain the very passage
+  // the lonely minute already shows. Borrowing it back is a no-op on screen.
+  for (const minute of ['00:22', '04:13', '08:02', '19:21']) {
+    if (!passages.db[minute]) continue;
+    reader.show(passages.candidates(minute)[0] && { ...passages.candidates(minute)[0], key: minute, minute }, { animate: false });
+    const shown = reader.current.quote;
+    reader.advance();
+    assert(reader.current.quote !== shown, `${minute} borrowed its own passage back`);
+  }
 });
 
 await check('focus record only counts focus phases', () => {
