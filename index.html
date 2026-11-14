@@ -7,202 +7,688 @@
     script-src 'self';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
     font-src 'self' https://fonts.gstatic.com;
-    img-src 'self' https://images.unsplash.com https://*.unsplash.com https://raw.githubusercontent.com data:;
+    img-src 'self' data: https://images.unsplash.com https://*.unsplash.com;
     media-src 'self' data: blob:;
-    connect-src 'self' https://raw.githubusercontent.com;
-    frame-src 'self' https://open.spotify.com;
-  ">
+    connect-src 'self';
+    form-action 'none';
+    base-uri 'self';
+  " />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Minute Muse - A literary clock, ambient soundscape, and cozy study focus sanctuary." />
-  <title>Minute Muse — Literary Study Focus Sanctuary</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Minute Muse is a calm, literary focus workspace: a clock that tells the time through passages from books, paired with a focus timer, tasks, ambience and a private journal." />
+  <meta name="theme-color" content="#0a0b0f" />
+  <meta name="color-scheme" content="dark" />
+  <title>Minute Muse — A Literary Focus Workspace</title>
+
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <!-- AMBIENT EFFECTS -->
-  <div class="grain" aria-hidden="true"></div>
-  <div class="rain" id="rain-effect" aria-hidden="true"></div>
+<body data-theme="lamplight">
+  <a class="skip-link" href="#main">Skip to the reading</a>
 
-  <!-- AUDIO ENGINE -->
-  <audio id="bgm-player" loop preload="auto"></audio>
+  <!-- ICON SPRITE (inline, CSP-safe) -->
+  <svg xmlns="http://www.w3.org/2000/svg" class="sr-only" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 6.5C10.6 5 8.6 4 6.2 4H2.5v15h4c2.2 0 4 .8 5.5 2.2 1.5-1.4 3.3-2.2 5.5-2.2h4V4h-3.7c-2.4 0-4.4 1-5.8 2.5Z"/><path d="M12 6.5V21"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.2v5.1l3.2 1.9"/></symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6.5 8.8H3v6.4h3.5L11 19z"/><path d="M15.4 8.6a4.6 4.6 0 0 1 0 6.8"/><path d="M18.2 6a8.4 8.4 0 0 1 0 12"/></symbol>
+      <symbol id="i-volume-off" viewBox="0 0 24 24"><path d="M11 5 6.5 8.8H3v6.4h3.5L11 19z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-6M4 11V3M12 21v-9M12 8V3M20 21v-4M20 13V3"/><path d="M1.5 15h5M9.5 8h5M17.5 17h5"/></symbol>
+      <symbol id="i-check-square" viewBox="0 0 24 24"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="4.4"/><path d="m8 12.2 2.9 2.8 5.2-5.6"/></symbol>
+      <symbol id="i-timer" viewBox="0 0 24 24"><path d="M9.6 2.4h4.8"/><circle cx="12" cy="13.6" r="8.2"/><path d="M12 13.6V9.4M18.4 7.2 20 5.6"/></symbol>
+      <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12.5 20H21"/><path d="M16.7 3.6a2.2 2.2 0 0 1 3.1 3.1L7 19.5l-4.3 1.2 1.2-4.3z"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3.2 3.2v17.6h17.6"/><path d="m7 15.5 3.4-4.2 3 2.6 4.6-6"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.2 12S5.8 5.8 12 5.8 21.8 12 21.8 12 18.2 18.2 12 18.2 2.2 12 2.2 12Z"/><circle cx="12" cy="12" r="2.9"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.8h5V7M6.4 7l.9 13.2h9.4L17.6 7"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.4 5.2 19 12 8.4 18.8z"/></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.6 5v14M15.4 5v14"/></symbol>
+      <symbol id="i-skip" viewBox="0 0 24 24"><path d="M5.4 5.2 15 12 5.4 18.8z"/><path d="M18.8 5v14"/></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3.6 12a8.4 8.4 0 1 0 2.6-6.1"/><path d="M3.2 3.6v5.2h5.2"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11.6" height="11.6" rx="2.4"/><path d="M15 5.4V4.2a1.2 1.2 0 0 0-1.2-1.2H4.2A1.2 1.2 0 0 0 3 4.2v9.6a1.2 1.2 0 0 0 1.2 1.2h1.2"/></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.2 3.4h11.6v17.2L12 16.6l-5.8 4z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.8 12.4 4.6 4.6L19.4 6.6"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9.4 5.6 6.4 6.4-6.4 6.4"/></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m14.6 5.6-6.4 6.4 6.4 6.4"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7.2"/><path d="m16.4 16.4 4 4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.8 13.2A8.6 8.6 0 1 1 11 3.4a6.8 6.8 0 0 0 9.8 9.8Z"/></symbol>
+      <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M4 20C4 10.8 10 4.6 20.4 3.6 19.4 14 13.2 20 4 20Z"/><path d="m4 20 8.4-8.4"/></symbol>
+      <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7.4 14.6h9.2a3.7 3.7 0 0 0 .4-7.4A5.8 5.8 0 0 0 6 8a3.4 3.4 0 0 0 1.4 6.6Z"/><path d="M8.6 17.6 7.6 20M12.4 17.6l-1 2.4M16.2 17.6l-1 2.4"/></symbol>
+      <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3.2c3.1 3.9 5.2 6.3 5.2 9.2a5.2 5.2 0 0 1-10.4 0c0-1.6.6-3 1.6-4.2 1-1.2 2.4-2.6 3.6-5Z"/><path d="M12 20.4a2.6 2.6 0 0 0 2.6-2.6c0-1.2-.8-2.2-2.6-4-1.8 1.8-2.6 2.8-2.6 4A2.6 2.6 0 0 0 12 20.4Z"/></symbol>
+      <symbol id="i-feather" viewBox="0 0 24 24"><path d="M20.2 3.8a6 6 0 0 0-8.5 0L4 11.5V20h8.5l7.7-7.7a6 6 0 0 0 0-8.5Z"/><path d="M16 8 2 22M17.5 15H9"/></symbol>
+      <symbol id="i-music" viewBox="0 0 24 24"><path d="M9.4 18.4V6.2l9-2v12.2"/><circle cx="6.6" cy="18.6" r="2.8"/><circle cx="15.6" cy="16.4" r="2.8"/></symbol>
+      <symbol id="i-waves" viewBox="0 0 24 24"><path d="M2.2 8.4c2-2.2 4-2.2 6 0s4 2.2 6 0 4-2.2 6 0"/><path d="M2.2 14.2c2-2.2 4-2.2 6 0s4 2.2 6 0 4-2.2 6 0"/><path d="M2.2 20c2-2.2 4-2.2 6 0s4 2.2 6 0 4-2.2 6 0"/></symbol>
+      <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M4.4 8.6h11.4v5.8a5.7 5.7 0 0 1-11.4 0z"/><path d="M15.8 9.8h1.8a2.9 2.9 0 0 1 0 5.8h-1.8"/><path d="M7 3.4v2.2M11 3.4v2.2"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.4v11.4M7.6 11l4.4 4.4L16.4 11"/><path d="M4 20.2h16"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.2V3.8M7.6 8l4.4-4.4L16.4 8"/><path d="M4 20.2h16"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v5.2"/><path d="M12 16.2h.01"/></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.2 13.9 8l4.8 1.9-4.8 1.9L12 16.6l-1.9-4.8L5.3 9.9 10.1 8z"/><path d="M18.6 15.4l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9z"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8.4 3.4H3.4v5M15.6 3.4h5v5M8.4 20.6H3.4v-5M20.6 15.6v5h-5"/></symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19.4 12H4.6M11 5.4 4.4 12l6.6 6.6"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11.2v5.2"/><path d="M12 7.8h.01"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6.8-6.2 6.8-11A6.8 6.8 0 0 0 5.2 10c0 4.8 6.8 11 6.8 11Z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+    </defs>
+  </svg>
 
-  <main class="app" id="app-container">
-    
-    <!-- TIMEPIECE HERO: Prominent, natural clock with ambient context -->
-    <header class="timepiece-hero" aria-label="Clock and Ambience">
-      <div class="time-row">
-        <span class="time-digits" id="time" aria-live="polite">--:--</span>
-        <span class="time-ampm" id="ampm">--</span>
+  <!-- AMBIENT BACKDROP -->
+  <div class="backdrop" id="backdrop" aria-hidden="true">
+    <div class="backdrop__img" id="backdrop-a"></div>
+    <div class="backdrop__img" id="backdrop-b"></div>
+    <div class="backdrop__scrim"></div>
+    <div class="grain"></div>
+  </div>
+  <div class="rain-layer" id="rain-layer" aria-hidden="true"></div>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="index.html" aria-label="Minute Muse — home">
+        <span class="brand__mark" aria-hidden="true">
+          <svg class="icon"><use href="#i-book"></use></svg>
+        </span>
+        <span class="brand__text">
+          <strong>Minute Muse</strong>
+          <span>Literary focus workspace</span>
+        </span>
+      </a>
+
+      <button class="topbar__status" id="status-pill" type="button" data-tooltip="Open the focus timer">
+        <span class="pulse" aria-hidden="true"></span>
+        <span class="status-label" id="status-label">Ready to focus</span>
+      </button>
+
+      <div class="topbar__actions">
+        <button class="icon-btn" id="btn-library" type="button" aria-label="Search the passage library" data-tooltip="Passage library">
+          <svg class="icon"><use href="#i-search"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-stats" type="button" aria-label="View focus statistics" data-tooltip="Focus statistics">
+          <svg class="icon"><use href="#i-chart"></use></svg>
+        </button>
+        <span class="sep" aria-hidden="true"></span>
+        <button class="icon-btn" id="btn-zen" type="button" aria-pressed="false" aria-label="Toggle Zen reading mode" data-tooltip="Zen mode">
+          <svg class="icon"><use href="#i-eye"></use></svg>
+        </button>
+        <button class="icon-btn" id="btn-settings" type="button" aria-label="Open settings" data-tooltip="Settings">
+          <svg class="icon"><use href="#i-sliders"></use></svg>
+        </button>
       </div>
-      <div class="time-context">
-        <span id="greeting">Good Day</span>
-        <span class="dot" aria-hidden="true">•</span>
-        <span id="period">Loading…</span>
-        <span class="dot" aria-hidden="true">•</span>
-        <button class="season-badge" id="season-badge" title="Click 5 times for Admin override">Detecting Climate…</button>
-      </div>
-    </header>
+    </div>
+  </header>
 
-    <!-- UNBROKEN LITERARY CARD: Pure reading & focus flow -->
-    <section class="card" id="quote-card" aria-label="Current Reading">
-      <div class="quote-wrapper">
-        <blockquote class="quote" id="quote">
-          Loading story…
-        </blockquote>
-      </div>
+  <main class="shell" id="main">
+    <!-- STUDY RAIL -->
+    <aside class="rail" id="rail" aria-label="Study tools">
+      <section class="panel panel--timer panel--focus" aria-labelledby="timer-heading">
+        <div class="panel__head">
+          <h2 class="panel__title" id="timer-heading">
+            <svg class="icon" aria-hidden="true"><use href="#i-timer"></use></svg>
+            Focus session
+          </h2>
+          <span class="panel__meta" id="timer-round-label">Round 1 of 4</span>
+        </div>
 
-      <div class="quote-footer">
-        <cite class="author" id="author"></cite>
-      </div>
-      
-      <!-- Focus Mode Controls (Only active during Pomodoro) -->
-      <div id="focus-controls" class="focus-controls hidden">
-        <button id="btn-focus-expand" class="btn-small" title="Fullscreen Focus">⛶ Expand</button>
-        <button id="btn-focus-stop" class="btn-small" title="End Session">🛑 Stop</button>
-      </div>
+        <div class="timer" id="timer">
+          <div class="timer__dial">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="timer__track" cx="50" cy="50" r="46"></circle>
+              <circle class="timer__progress" id="timer-arc" cx="50" cy="50" r="46" stroke-dasharray="289.03" stroke-dashoffset="289.03"></circle>
+            </svg>
+            <div class="timer__center">
+              <span class="timer__time" id="timer-time" role="timer" aria-live="off">25:00</span>
+              <span class="timer__mode" id="timer-mode">Focus</span>
+              <span class="timer__dots" id="timer-dots" aria-hidden="true"></span>
+            </div>
+          </div>
 
-      <!-- TOOLBAR -->
-      <nav class="toolbar" aria-label="Quick Controls">
-        <button id="btn-sound" class="tool-btn" title="Toggle Ambience Sound" aria-label="Toggle Ambience Sound">
-          <span class="icon" aria-hidden="true">🔇</span>
-        </button>
-        <button id="btn-music-menu" class="tool-btn" title="Select Soundscape" aria-label="Select Soundscape">
-          <span class="icon" aria-hidden="true">🎵</span>
-        </button>
-        <button id="btn-spotify" class="tool-btn" title="Open Spotify Player" aria-label="Open Spotify Player">
-          <span class="icon" aria-hidden="true">🟢</span>
-        </button>
-        <button id="btn-focus" class="tool-btn" title="Start Focus Timer" aria-label="Start Focus Timer">
-          <span class="icon" aria-hidden="true">🍅</span>
-        </button>
-        <button id="btn-journal" class="tool-btn" title="Open Reflection Journal" aria-label="Open Reflection Journal">
-          <span class="icon" aria-hidden="true">✏️</span>
-        </button>
-        <button id="btn-zen" class="tool-btn" title="Toggle Zen Mode" aria-label="Toggle Zen Mode">
-          <span class="icon" aria-hidden="true">👁️</span>
-        </button>
-        <button id="new-quote" class="tool-btn" title="Refresh Inspiration" aria-label="Refresh Inspiration">
-          <span class="icon" aria-hidden="true">↻</span>
-        </button>
-      </nav>
+          <div class="timer__presets" id="timer-presets" role="group" aria-label="Focus length"></div>
 
-      <!-- MUSIC SELECTION POPUP -->
-      <div id="music-menu" class="music-menu hidden" role="menu" aria-label="Ambience Tracks">
-        <div class="music-header">Select Ambience</div>
-        <ul id="track-list"></ul>
-      </div>
+          <div class="timer__actions">
+            <button class="btn btn--primary" id="btn-timer-primary" type="button">
+              <svg class="icon" aria-hidden="true"><use href="#i-play"></use></svg>
+              <span id="timer-primary-label">Start focus</span>
+            </button>
+            <button class="icon-btn" id="btn-timer-skip" type="button" aria-label="Skip to the next phase" data-tooltip="Skip phase">
+              <svg class="icon"><use href="#i-skip"></use></svg>
+            </button>
+            <button class="icon-btn" id="btn-timer-reset" type="button" aria-label="Reset the session" data-tooltip="Reset">
+              <svg class="icon"><use href="#i-reset"></use></svg>
+            </button>
+          </div>
 
-      <div class="next-change" id="next-change">Next page in 60s</div>
+          <div class="timer__foot">
+            <span>Today <strong id="timer-today">0m</strong></span>
+            <span id="timer-plan-label">25 / 5 / 15 min plan</span>
+          </div>
+        </div>
+      </section>
 
-      <!-- ATTRIBUTION & LEGAL FOOTER -->
-      <footer class="attribution">
-        <span id="photo-credit">Atmosphere via Unsplash</span>
-        <span class="separator" aria-hidden="true">&bull;</span>
-        Quotes curated via <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a>
-        <br>
-        <nav class="legal-links" aria-label="Legal & Information">
-          <button id="btn-open-credits" class="text-link-btn">Credits & Licenses</button> &bull;
-          <a href="terms.html">Terms</a> &bull; 
-          <a href="privacy.html">Privacy</a> &bull; 
+      <section class="panel panel--tasks" aria-labelledby="tasks-heading">
+        <div class="panel__head">
+          <h2 class="panel__title" id="tasks-heading">
+            <svg class="icon" aria-hidden="true"><use href="#i-check-square"></use></svg>
+            Session tasks
+          </h2>
+          <span class="panel__meta" id="tasks-count">0 / 0</span>
+        </div>
+        <div class="task-progress" aria-hidden="true"><span id="tasks-progress"></span></div>
+        <ul class="task-list" id="task-list"></ul>
+        <p class="task-empty" id="task-empty">Nothing on the desk yet. Add the one thing this session is for.</p>
+        <form class="task-add" id="task-form" autocomplete="off">
+          <label class="sr-only" for="task-input">New task</label>
+          <input id="task-input" type="text" placeholder="Add a task and press Enter" maxlength="180" />
+          <button class="icon-btn" type="submit" aria-label="Add task">
+            <svg class="icon"><use href="#i-plus"></use></svg>
+          </button>
+        </form>
+        <div class="task-foot">
+          <span id="tasks-summary">No tasks yet</span>
+          <button type="button" id="btn-clear-done" hidden>Clear completed</button>
+        </div>
+      </section>
+
+      <section class="panel panel--sounds" aria-labelledby="sounds-heading">
+        <div class="panel__head">
+          <h2 class="panel__title" id="sounds-heading">
+            <svg class="icon" aria-hidden="true"><use href="#i-waves"></use></svg>
+            Ambience
+          </h2>
+          <button class="icon-btn" id="btn-mute" type="button" aria-pressed="false" aria-label="Mute all ambience" data-tooltip="Mute all">
+            <svg class="icon"><use href="#i-volume"></use></svg>
+          </button>
+        </div>
+        <div class="sound-list" id="sound-list"></div>
+        <div class="sound-presets" id="sound-presets" role="group" aria-label="Ambience presets"></div>
+        <p class="field-hint" id="audio-hint" style="margin-top:10px;">Nothing plays on its own. Each layer fades in when you switch it on.</p>
+      </section>
+    </aside>
+
+    <!-- READING STAGE -->
+    <div class="stage">
+      <section class="timepiece" aria-label="Current time and atmosphere">
+        <div class="time-row">
+          <span class="time-digits" id="clock-time">--:--</span>
+          <span class="time-ampm" id="clock-ampm">--</span>
+        </div>
+        <div class="time-context">
+          <span id="greeting">Settling in</span>
+          <span class="dot" aria-hidden="true">•</span>
+          <span id="period-label">Reading the hour…</span>
+          <span class="dot" aria-hidden="true">•</span>
+          <span class="date-text" id="date-label"></span>
+          <span class="dot" aria-hidden="true">•</span>
+          <button class="climate-badge" id="climate-badge" type="button" data-tooltip="Change your climate in settings">
+            <span class="dot-climate" aria-hidden="true"></span>
+            <span id="climate-label">Detecting climate…</span>
+          </button>
+        </div>
+      </section>
+
+      <article class="reader" id="reader" aria-label="Passage for this minute">
+        <div class="reader__eyebrow">
+          <span class="eyebrow-left">
+            <svg class="icon" aria-hidden="true"><use href="#i-book"></use></svg>
+            <h1 class="sr-only" id="reader-context">The literary clock — a passage for this minute</h1>
+            <span id="reader-eyebrow-text" aria-hidden="true">The literary clock</span>
+          </span>
+          <button class="preview-flag" id="preview-flag" type="button" hidden>
+            Back to now
+          </button>
+        </div>
+
+        <div class="quote-skeleton" aria-hidden="true">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line"></div>
+        </div>
+
+        <div class="quote-wrapper">
+          <blockquote class="quote" id="quote">Loading this minute’s passage…</blockquote>
+        </div>
+
+        <div class="quote-byline">
+          <cite class="author" id="author"></cite>
+          <span class="work" id="work"></span>
+        </div>
+
+        <div class="reader__actions">
+          <div class="action-group">
+            <button class="action-btn" id="btn-new-quote" type="button" data-tooltip="Another passage for this minute">
+              <svg class="icon"><use href="#i-chevron-right"></use></svg>
+              <span class="action-label">New passage</span>
+            </button>
+            <button class="action-btn" id="btn-save-quote" type="button" aria-pressed="false" data-tooltip="Save to your journal">
+              <svg class="icon"><use href="#i-bookmark"></use></svg>
+              <span class="action-label">Save</span>
+            </button>
+            <button class="action-btn" id="btn-copy-quote" type="button" data-tooltip="Copy the quote">
+              <svg class="icon"><use href="#i-copy"></use></svg>
+              <span class="action-label">Copy</span>
+            </button>
+          </div>
+          <div class="action-group">
+            <button class="action-btn" id="btn-note-quote" type="button" data-tooltip="Write about this passage">
+              <svg class="icon"><use href="#i-pen"></use></svg>
+              <span class="action-label">Reflect</span>
+            </button>
+            <button class="action-btn" id="btn-prev-minute" type="button" aria-label="Previous minute's passages" data-tooltip="Previous minute">
+              <svg class="icon"><use href="#i-chevron-left"></use></svg>
+            </button>
+            <button class="action-btn" id="btn-next-minute" type="button" aria-label="Next minute's passages" data-tooltip="Next minute">
+              <svg class="icon"><use href="#i-chevron-right"></use></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="reader__next">
+          <span class="tick-track" aria-hidden="true"><span class="tick-fill" id="tick-fill"></span></span>
+          <span class="next-time" id="next-time">Next passage in 60s</span>
+        </div>
+      </article>
+
+      <footer class="stage__foot">
+        <span id="photo-credit">Atmosphere courtesy of the Unsplash community</span>
+        <span class="foot-sep" aria-hidden="true">·</span>
+        <span class="foot-links">
+          <button class="linklike" id="btn-credits" type="button">Credits</button>
+          <span aria-hidden="true">/</span>
+          <a href="terms.html">Terms</a>
+          <span aria-hidden="true">/</span>
+          <a href="privacy.html">Privacy</a>
+          <span aria-hidden="true">/</span>
           <a href="disclaimer.html">Disclaimer</a>
-        </nav>
+        </span>
       </footer>
-    </section>
-
-    <!-- JOURNAL, FOCUS SETUP, CREDITS & ADMIN MODALS REMAIN UNCHANGED BELOW -->
-
-    <!-- JOURNAL MODAL -->
-    <div id="journal-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="journal-title">
-      <div class="modal-card">
-        <h2 id="journal-title">Study Thoughts & Journal</h2>
-        <p class="modal-subtitle">Notes are stored purely on your device in local storage.</p>
-        <textarea id="journal-text" placeholder="Capture thoughts, study goals, or reflection on this quote…"></textarea>
-        <div class="modal-actions">
-          <button id="btn-close-journal" class="btn-primary">Save & Close</button>
-        </div>
-      </div>
     </div>
-
-    <!-- FOCUS SETUP MODAL -->
-    <div id="focus-setup-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="focus-title">
-      <div class="modal-card">
-        <h2 id="focus-title">Start Focus Session</h2>
-        <p class="modal-subtitle">Choose your deep work duration</p>
-        
-        <div class="input-group">
-          <input type="number" id="focus-input-min" value="25" min="1" max="180" aria-label="Focus duration in minutes">
-          <span>minutes</span>
-        </div>
-    
-        <div class="modal-actions-stacked">
-          <button id="btn-start-focus" class="btn-primary">Start Timer</button>
-          <button id="btn-cancel-focus" class="btn-text">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- IN-APP CREDITS & LICENSING MODAL -->
-    <div id="credits-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="credits-title">
-      <div class="modal-card modal-wide">
-        <h2 id="credits-title">Credits, Licensing & Legal Compliance</h2>
-        
-        <div class="credits-content">
-          <section class="credit-section">
-            <h3>🎵 Audio Tracks (Public Domain / CC0)</h3>
-            <p>All ambient tracks used in Minute Muse are dedicated to the public domain under the Creative Commons 0 (CC0) dedication:</p>
-            <ul class="credit-list">
-              <li><strong>Tropical Rain</strong> — pablodavilla (<a href="https://freesound.org/s/503167/" target="_blank" rel="noopener noreferrer">Freesound #503167</a>, CC0)</li>
-              <li><strong>Cozy Fireplace</strong> — true_killian (<a href="https://freesound.org/s/760474/" target="_blank" rel="noopener noreferrer">Freesound #760474</a>, CC0)</li>
-              <li><strong>Forest Birds 1</strong> — titi2 (<a href="https://freesound.org/s/567531/" target="_blank" rel="noopener noreferrer">Freesound #567531</a>, CC0)</li>
-              <li><strong>Forest Birds 2</strong> — sama66 (<a href="https://freesound.org/s/462137/" target="_blank" rel="noopener noreferrer">Freesound #462137</a>, CC0)</li>
-              <li><strong>Smooth Jazz</strong> — amandedou (<a href="https://freesound.org/s/317673/" target="_blank" rel="noopener noreferrer">Freesound #317673</a>, CC0)</li>
-            </ul>
-          </section>
-
-          <section class="credit-section">
-            <h3>📖 Literary Excerpts & Takedown</h3>
-            <p>Quotes are curated from the open-source <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a> project under Fair Use principles for transformative, educational display. If you are a copyright holder and wish to have an excerpt removed, see our <a href="terms.html#dmca">Takedown Policy</a>.</p>
-          </section>
-
-          <section class="credit-section">
-            <h3>📸 Photography</h3>
-            <p>Atmospheric photography is sourced through the <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash API</a>. Each image is dynamically credited to its respective photographer in the footer with referral links according to Unsplash API guidelines.</p>
-          </section>
-        </div>
-
-        <button id="btn-close-credits" class="btn-primary" style="margin-top:20px;">Close Credits</button>
-      </div>
-    </div>
-
-    <!-- ADMIN OVERLAY -->
-    <div id="admin-overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="admin-title">
-      <div class="modal-card">
-        <h2 id="admin-title">🔧 Environment Override</h2>
-        <p class="modal-subtitle">Force Location / Season for testing atmospheres</p>
-        <select id="admin-location-select" aria-label="Select climate override">
-          <option value="auto">Auto Detect (Default)</option>
-          <option value="tropical">Force Tropical (Singapore)</option>
-          <option value="north_winter">Force North Winter (London)</option>
-          <option value="north_summer">Force North Summer (New York)</option>
-          <option value="south_summer">Force South Summer (Sydney)</option>
-          <option value="south_winter">Force South Winter (Melbourne)</option>
-        </select>
-        <button id="btn-close-admin" class="btn-primary" style="margin-top:15px;">Apply & Reload</button>
-      </div>
-    </div>
-
   </main>
 
-  <!-- SPOTIFY WIDGET -->
-  <aside id="spotify-container" class="spotify-widget hidden" aria-label="Spotify Music Player">
-    <iframe data-testid="embed-iframe" style="border-radius:12px" src="https://open.spotify.com/embed/playlist/37i9dQZF1DX1uaml3UXYLk?utm_source=generator&si=db5ba0b8931c45b5" width="100%" height="352" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
-    <button id="close-spotify" class="close-btn" aria-label="Close Spotify Player">×</button>
+  <!-- MOBILE DOCK -->
+  <nav class="dock" id="dock" aria-label="Study tools">
+    <button class="dock__btn" type="button" data-sheet="focus">
+      <svg class="icon" aria-hidden="true"><use href="#i-timer"></use></svg>
+      Focus
+    </button>
+    <button class="dock__btn" type="button" data-sheet="tasks">
+      <svg class="icon" aria-hidden="true"><use href="#i-check-square"></use></svg>
+      Tasks
+    </button>
+    <button class="dock__btn" type="button" data-sheet="sounds">
+      <svg class="icon" aria-hidden="true"><use href="#i-waves"></use></svg>
+      Sounds
+    </button>
+    <button class="dock__btn" type="button" data-open="journal">
+      <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg>
+      Journal
+    </button>
+  </nav>
+  <div class="sheet-backdrop" id="sheet-backdrop"></div>
+
+  <button class="zen-exit" id="zen-exit" type="button">
+    <svg class="icon" aria-hidden="true"><use href="#i-eye"></use></svg>
+    Leave Zen
+  </button>
+
+  <!-- IMMERSIVE SESSION VIEW -->
+  <div class="focus-view" id="focus-view" hidden aria-label="Immersive focus session">
+    <button class="focus-view__exit" id="focus-view-exit" type="button" aria-label="Leave immersive view">
+      <svg class="icon"><use href="#i-x"></use></svg>
+    </button>
+    <div class="focus-view__dial">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="timer__track" cx="50" cy="50" r="48"></circle>
+        <circle class="timer__progress" id="focus-arc" cx="50" cy="50" r="48" stroke-dasharray="301.59" stroke-dashoffset="301.59"></circle>
+      </svg>
+      <div class="focus-view__time" id="focus-time" role="timer" aria-live="off">25:00</div>
+    </div>
+    <div class="focus-view__mode" id="focus-mode">Focus</div>
+    <p class="focus-view__intent" id="focus-intent">One thing, one page, one breath at a time.</p>
+    <div class="focus-view__controls">
+      <button class="btn btn--primary" id="btn-focus-toggle" type="button">
+        <svg class="icon" aria-hidden="true"><use href="#i-pause"></use></svg>
+        <span id="focus-toggle-label">Pause</span>
+      </button>
+      <button class="icon-btn" id="btn-focus-skip" type="button" aria-label="Skip phase">
+        <svg class="icon"><use href="#i-skip"></use></svg>
+      </button>
+    </div>
+    <p class="focus-view__hint">Space to pause · Esc to leave</p>
+  </div>
+
+  <!-- JOURNAL DRAWER -->
+  <aside class="drawer" id="journal-drawer" role="dialog" aria-modal="true" aria-labelledby="journal-title" hidden>
+    <div class="drawer__head">
+      <div>
+        <h2 id="journal-title">Journal</h2>
+        <p class="field-hint" id="journal-subtitle">Private, on this device only.</p>
+      </div>
+      <button class="modal__close" id="btn-close-journal" type="button" aria-label="Close journal">
+        <svg class="icon"><use href="#i-x"></use></svg>
+      </button>
+    </div>
+    <div class="drawer__body">
+      <div class="tabs" role="tablist" aria-label="Journal sections">
+        <button class="tab" id="tab-notes" role="tab" aria-selected="true" aria-controls="panel-notes" type="button">Notes</button>
+        <button class="tab" id="tab-saved" role="tab" aria-selected="false" aria-controls="panel-saved" type="button">Saved passages</button>
+      </div>
+
+      <section id="panel-notes" role="tabpanel" aria-labelledby="tab-notes">
+        <label class="field-label" for="journal-text" id="journal-context-label">Session reflection</label>
+        <textarea class="note-area" id="journal-text" placeholder="What are you working on? What did this passage stir?&#10;&#10;Notes save automatically as you type."></textarea>
+        <div class="note-meta">
+          <span class="autosave" id="journal-status"><span class="dot-status"></span><span id="journal-status-text">Saved on this device</span></span>
+          <span id="journal-wordcount">0 words</span>
+        </div>
+        <div class="divider"></div>
+        <div class="field">
+          <span class="field-label">Focus intention</span>
+          <p class="field-hint" id="intention-text">No intention set. Pick a task in the rail or start a session to set one.</p>
+        </div>
+      </section>
+
+      <section id="panel-saved" role="tabpanel" aria-labelledby="tab-saved" hidden>
+        <div class="passage-list" id="saved-list"></div>
+        <div class="empty-state" id="saved-empty">
+          <svg class="icon"><use href="#i-bookmark"></use></svg>
+          Saved passages live here. Tap <strong>Save</strong> on any quote to keep it for later reflection.
+        </div>
+      </section>
+    </div>
   </aside>
 
-  <button id="exit-fullscreen-btn" aria-label="Exit Fullscreen Mode">Exit Fullscreen</button>
+  <!-- LIBRARY MODAL -->
+  <div class="overlay" id="library-overlay" hidden>
+    <div class="modal modal--wide modal--tall" role="dialog" aria-modal="true" aria-labelledby="library-title">
+      <div class="modal__head">
+        <div>
+          <h2 id="library-title">Passage library</h2>
+          <p>Search the collection by phrase, author, or minute of the day.<span id="library-total"></span></p>
+        </div>
+        <button class="modal__close" type="button" data-close aria-label="Close library">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="search-bar">
+          <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+          <label class="sr-only" for="library-search">Search passages</label>
+          <input id="library-search" type="search" placeholder="Try “lighthouse”, “Tolstoy”, or 14:30" autocomplete="off" />
+        </div>
+        <div class="filter-row" id="library-filters">
+          <button class="chip is-active" type="button" data-filter="all">Everything</button>
+          <button class="chip" type="button" data-filter="time">This hour</button>
+          <button class="chip" type="button" data-filter="now">This minute</button>
+          <button class="chip" type="button" data-filter="author">By author</button>
+          <span class="result-count" id="library-count"></span>
+        </div>
+        <div class="result-list" id="library-results" aria-live="polite"></div>
+        <div class="empty-state" id="library-empty" hidden>
+          <svg class="icon"><use href="#i-search"></use></svg>
+          No passages match that search. Try a shorter phrase, or search for a minute like <strong>09:15</strong>.
+        </div>
+      </div>
+      <div class="modal__foot">
+        <span class="field-hint spacer" id="library-hint">Select a passage to read it in the clock.</span>
+        <button class="btn btn--ghost" type="button" data-close>Close</button>
+      </div>
+    </div>
+  </div>
 
-  <script src="script.js"></script>
+  <!-- STATS MODAL -->
+  <div class="overlay" id="stats-overlay" hidden>
+    <div class="modal modal--wide modal--tall" role="dialog" aria-modal="true" aria-labelledby="stats-title">
+      <div class="modal__head">
+        <div>
+          <h2 id="stats-title">Focus record</h2>
+          <p>Everything is counted locally. Nothing leaves this device.</p>
+        </div>
+        <button class="modal__close" type="button" data-close aria-label="Close statistics">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="stats-hero" id="stats-hero"></div>
+        <p class="section-label">Last 14 days of focus</p>
+        <div class="bars" id="stats-bars" aria-hidden="true"></div>
+        <div class="chart-caption"><span>Two weeks ago</span><span>Today</span></div>
+        <div id="stats-streak"></div>
+        <p class="section-label">Recent sessions</p>
+        <div class="result-list" id="stats-sessions"></div>
+        <div class="empty-state" id="stats-empty" hidden>
+          <svg class="icon"><use href="#i-chart"></use></svg>
+          Your first finished session will appear here. Five minutes counts.
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--ghost spacer" type="button" id="btn-export-data">
+          <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+          Export data
+        </button>
+        <button class="btn btn--ghost" type="button" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="overlay" id="settings-overlay" hidden>
+    <div class="modal modal--tall" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="modal__head">
+        <div>
+          <h2 id="settings-title">Settings</h2>
+          <p>Shape the room to suit how you read and work.</p>
+        </div>
+        <button class="modal__close" type="button" data-close aria-label="Close settings">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="setting-group">
+          <p class="section-label">Appearance</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Palette</strong><span>Lamplight is warm; Moonlight is cool and quieter.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented" id="setting-theme" role="group" aria-label="Colour palette">
+                <button type="button" data-value="lamplight">Lamplight</button>
+                <button type="button" data-value="moonlight">Moonlight</button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Passage size</strong><span>Comfort settings for long reading.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented" id="setting-text" role="group" aria-label="Passage text size">
+                <button type="button" data-value="sm">S</button>
+                <button type="button" data-value="md">M</button>
+                <button type="button" data-value="lg">L</button>
+              </div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Quiet backdrop</strong><span>Hides photography for a plain, paper-like background.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-quiet" aria-label="Quiet backdrop" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Reduce motion</strong><span>Stops the slow background drift and decorative animation.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-motion" aria-label="Reduce motion" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <p class="section-label">Clock &amp; reading</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>24-hour clock</strong><span>Show 14:30 instead of 2:30 PM.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-24h" aria-label="24-hour clock" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Turn the page every minute</strong><span>When off, the passage stays until you ask for another.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-autoturn" aria-label="Turn the page every minute" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Climate &amp; season</strong><span>Sets the backdrop mood. Based on your timezone unless overridden.</span></div>
+            <div class="setting-row__control" style="width:min(220px,100%);">
+              <label class="sr-only" for="setting-climate">Climate override</label>
+              <select id="setting-climate">
+                <option value="auto">Auto-detect</option>
+                <option value="tropical">Tropical</option>
+                <option value="north_winter">Northern winter</option>
+                <option value="north_summer">Northern summer</option>
+                <option value="south_winter">Southern winter</option>
+                <option value="south_summer">Southern summer</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <p class="section-label">Sessions</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Focus / short break / long break</strong><span>Minutes. A long break arrives after four focus rounds.</span></div>
+            <div class="setting-row__control" style="gap:6px;">
+              <input type="number" id="setting-focus-min" min="1" max="180" style="width:66px;" aria-label="Focus minutes" />
+              <input type="number" id="setting-short-min" min="1" max="60" style="width:66px;" aria-label="Short break minutes" />
+              <input type="number" id="setting-long-min" min="1" max="90" style="width:66px;" aria-label="Long break minutes" />
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Auto-start breaks</strong><span>Begin the break straight after a focus round finishes.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-autobreak" aria-label="Auto-start breaks" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Chime at phase end</strong><span>A soft tone marks the end of each phase.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-chime" aria-label="Chime at phase end" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Desktop notification</strong><span>Only if your browser grants permission.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-notify" aria-label="Desktop notification" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Keep the tab title updated</strong><span>Shows time remaining while a session runs.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-tabtitle" aria-label="Keep the tab title updated" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <p class="section-label">Keyboard</p>
+          <div class="shortcut-list">
+            <div class="shortcut"><span>Start or pause the session</span><span><kbd>Space</kbd></span></div>
+            <div class="shortcut"><span>Another passage</span><span><kbd>N</kbd></span></div>
+            <div class="shortcut"><span>Save the current passage</span><span><kbd>S</kbd></span></div>
+            <div class="shortcut"><span>Open the journal</span><span><kbd>J</kbd></span></div>
+            <div class="shortcut"><span>Search the library</span><span><kbd>/</kbd></span></div>
+            <div class="shortcut"><span>Zen reading mode</span><span><kbd>Z</kbd></span></div>
+            <div class="shortcut"><span>Immersive session view</span><span><kbd>F</kbd></span></div>
+            <div class="shortcut"><span>Close whatever is open</span><span><kbd>Esc</kbd></span></div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <p class="section-label">Your data</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Everything stays here</strong><span>Tasks, notes, saved passages and session history are kept in this browser only.</span></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Export or restore</strong><span>Keep a backup before clearing browser data.</span></div>
+            <div class="setting-row__control" style="flex-wrap:wrap;">
+              <button class="btn btn--ghost" type="button" id="btn-import-data">
+                <svg class="icon" aria-hidden="true"><use href="#i-upload"></use></svg>
+                Import
+              </button>
+              <button class="btn btn--ghost" type="button" id="btn-export-data-2">
+                <svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>
+                Export
+              </button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Erase local data</strong><span>Removes tasks, notes, saved passages and history from this browser.</span></div>
+            <div class="setting-row__control">
+              <button class="btn btn--danger" type="button" id="btn-reset-data">Erase</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>About &amp; credits</strong><span>Sources, licences, and how this is built.</span></div>
+            <div class="setting-row__control">
+              <button class="btn btn--quiet" type="button" id="btn-open-credits">Open credits</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <span class="field-hint spacer">Minute Muse · a calm place for deep work</span>
+        <button class="btn btn--primary" type="button" data-close>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREDITS MODAL -->
+  <div class="overlay" id="credits-overlay" hidden>
+    <div class="modal modal--wide modal--tall" role="dialog" aria-modal="true" aria-labelledby="credits-title">
+      <div class="modal__head">
+        <div>
+          <h2 id="credits-title">Credits &amp; licences</h2>
+          <p>This room is built from other people’s generous work.</p>
+        </div>
+        <button class="modal__close" type="button" data-close aria-label="Close credits">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="modal__body">
+        <div class="credits-content">
+          <section class="credit-section">
+            <h3>Literature</h3>
+            <p>Passages are drawn from the open-source <a href="https://github.com/JohannesNE/literature-clock" target="_blank" rel="noopener noreferrer">Literature Clock</a> collection, a community index of lines from books that mention a specific time. Copyright remains with the authors and publishers; single excerpts are shown here in a transformative, educational context. Rights holders can request removal through the <a href="terms.html#dmca">takedown process</a>.</p>
+          </section>
+          <section class="credit-section">
+            <h3>Ambient audio</h3>
+            <p>All sound loops are public domain (CC0). Synthesised noise beds are generated in your browser.</p>
+            <ul class="credit-list">
+              <li><strong>Tropical rain</strong> — pablodavilla, <a href="https://freesound.org/s/503167/" target="_blank" rel="noopener noreferrer">Freesound #503167</a>, CC0</li>
+              <li><strong>Cozy fireplace</strong> — true_killian, <a href="https://freesound.org/s/760474/" target="_blank" rel="noopener noreferrer">Freesound #760474</a>, CC0</li>
+              <li><strong>Forest birds I</strong> — titi2, <a href="https://freesound.org/s/567531/" target="_blank" rel="noopener noreferrer">Freesound #567531</a>, CC0</li>
+              <li><strong>Forest birds II</strong> — sama66, <a href="https://freesound.org/s/462137/" target="_blank" rel="noopener noreferrer">Freesound #462137</a>, CC0</li>
+              <li><strong>Smooth jazz</strong> — amandedou, <a href="https://freesound.org/s/317673/" target="_blank" rel="noopener noreferrer">Freesound #317673</a>, CC0</li>
+            </ul>
+          </section>
+          <section class="credit-section">
+            <h3>Photography</h3>
+            <p>Atmospheric photography comes from photographers on <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash</a> and is credited in the footer with a link to each photographer’s profile, as the API guidelines require.</p>
+          </section>
+          <section class="credit-section">
+            <h3>The code</h3>
+            <p>The interface is plain HTML, CSS and JavaScript with no build step and no tracking. Source and licence details are in the <a href="https://github.com/PxlPau/Minute-Muse" target="_blank" rel="noopener noreferrer">repository</a>.</p>
+          </section>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--ghost" type="button" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOASTS -->
+  <div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <input type="file" id="import-file" accept="application/json,.json" aria-label="Choose a backup file to restore" hidden />
+
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>
