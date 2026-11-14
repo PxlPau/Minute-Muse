@@ -9,6 +9,34 @@ import { $, toast, copyText } from '../util.js';
 import { passages } from '../quotes.js';
 import { addBookmark, bookmarks, isBookmarked, removeBookmark } from '../store.js';
 
+/**
+ * Choose the next passage to show from `pool`.
+ *
+ * @param {Array<{quote: string}>} pool      every passage for the minute
+ * @param {number} resume                   index to continue from, or -1 if unknown
+ * @param {string|null} onScreen            quote currently displayed
+ * @returns {number} an index into `pool` whose quote differs from `onScreen`
+ *
+ * The one rule that matters: never hand back the passage already on screen. When
+ * a minute holds a single passage that is impossible, and the caller falls back
+ * to a neighbouring minute instead of pretending there is nothing more to read.
+ */
+function nextIndex(pool, resume, onScreen) {
+  const count = pool.length;
+  if (!count) return -1;
+
+  // Walk forward from where we left off, skipping repeats of the visible quote.
+  for (let step = 1; step <= count; step += 1) {
+    const index = (((resume + step) % count) + count) % count;
+    if (pool[index].quote !== onScreen) return index;
+  }
+
+  // Nothing in `pool` differs from the visible quote, so a repeat is unavoidable
+  // (this only happens when a minute's list is made entirely of duplicates).
+  // Hand back the current position rather than an arbitrary one.
+  return Math.min(Math.max(resume, 0), count - 1);
+}
+
 export class Reader {
   constructor({ onBookmarkChange = () => {}, onReflect = () => {}, onTurn = () => {} } = {}) {
     this.root = $('#reader');
@@ -25,7 +53,7 @@ export class Reader {
 
     this.current = null; // { ...passage, key }
     this.previewOffset = 0; // minutes away from now, 0 = live
-    this.seenIndex = -1;
+    this.seenIndex = -1; // position in the current minute's list, -1 = not yet stepped
     this.swapTimer = null;
   }
 
@@ -124,6 +152,13 @@ export class Reader {
       return;
     }
 
+    // A passage that arrives without `stepped` did not come from pressing "next"
+    // — the clock turned the page, the reader previewed a minute, or a search
+    // result opened. Its position belongs to a different minute's list (or to
+    // none at all), so drop it: otherwise the next press would resume from a
+    // stale index and could step straight back onto the passage on screen.
+    if (!stepped) this.seenIndex = -1;
+
     this.current = passage;
     const { html, plain } = passages.render(passage);
 
@@ -152,29 +187,48 @@ export class Reader {
     this.swapTimer = setTimeout(swap, 260);
   }
 
-  /** Step to another passage in the same minute (or nearby minute in preview). */
+  /**
+   * Step to another passage in the same minute (or nearby minute in preview).
+   *
+ * The reading position is tracked as "which passage in the minute on screen was
+ * last shown", and it is discarded whenever a passage arrives from anywhere
+ * other than a press of "next" (see `show`). It used to be a bare array index
+ * that survived everything, which broke in a way that is easy to miss: the clock
+ * turns the page on its own once a minute, so a page turn can land between two
+ * presses. The leftover index then pointed into a different minute's list, and
+ * the reader could step from a two-passage minute straight back onto the passage
+ * it was already showing — the same sentence, twice in a row.
+ */
   advance() {
     this.releasePin();
     const key = this.current?.key || passages.keyFor();
     const pool = passages.candidates(key);
+    const onScreen = this.current?.quote ?? null;
+
     if (pool.length > 1) {
-      // A fresh minute starts stepping from further back so the first press
-      // always lands on a different passage than the one on screen.
-      if (this.seenIndex < 0) {
-        this.seenIndex = pool.findIndex((entry) => entry.quote === this.current?.quote);
-        if (this.seenIndex < 0) this.seenIndex = pool.length - 1;
+      // Continue from the remembered position only if it still describes the
+      // passage on screen. If that quote appears more than once in the list, the
+      // position is ambiguous — the two occurrences look identical — so start
+      // afresh rather than risk settling into an A/B/A/B alternation.
+      let resume = -1;
+      if (this.seenIndex >= 0 && this.seenIndex < pool.length && pool[this.seenIndex].quote === onScreen) {
+        const appears = pool.filter((entry) => entry.quote === onScreen).length;
+        if (appears === 1) resume = this.seenIndex;
       }
-      this.seenIndex = (this.seenIndex + 1) % pool.length;
-      // Skip the passage already on screen when wrapping back to the start.
-      if (this.seenIndex === 0 && pool.length > 1 && pool[0].quote === this.current?.quote) this.seenIndex = 1;
-      this.show({ ...pool[this.seenIndex], key, minute: key, total: pool.length }, { stepped: true });
+      const index = nextIndex(pool, resume, onScreen);
+      this.seenIndex = index;
+      this.show({ ...pool[index], key, minute: key, total: pool.length }, { stepped: true });
       return;
     }
+
     // This minute has a single passage: offer the nearest minute that has more
     // instead of showing the reader the same sentence again.
     const neighbour = this.nearestRichMinute(key);
     if (neighbour) {
-      this.show(passages.pick(neighbour));
+      const pool = passages.candidates(neighbour);
+      const index = nextIndex(pool, -1, onScreen);
+      this.seenIndex = index;
+      this.show({ ...pool[index], key: neighbour, minute: neighbour, total: pool.length }, { stepped: true });
       toast('One passage for this minute — here is the closest neighbour.', { icon: 'book' });
       return;
     }
