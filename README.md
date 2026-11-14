@@ -102,9 +102,11 @@ js/
     settings-panel.js   preferences and data controls
 tools/
   serve.mjs             zero-dependency static server (npm run serve)
-  smoke-test.mjs        boots the app in jsdom and asserts 29 behaviours
+  smoke-test.mjs        boots the app in jsdom and asserts 31 behaviours
   audio-test.mjs        exercises the mixer against a stub Web Audio graph
   resilience-test.mjs   boots four failure modes and checks recovery
+  time-of-day-test.mjs  reruns the suite at the minutes that used to flake
+  assertions.mjs        shared "did a passage really render" helpers
   jsdom-env.mjs         the test harness: loopback server + DOM environment
 sw.js                   offline shell (stale-while-revalidate)
 generate-images.js      nightly photography curator (GitHub Action)
@@ -132,7 +134,9 @@ generate-images.js      nightly photography curator (GitHub Action)
 
 ```bash
 npm run serve      # http://localhost:8000
-npm test           # 29 app + 13 mixer + 4 resilience checks, headless
+npm test           # 31 app + 13 mixer + 4 resilience checks, headless
+npm run test:minutes # the app suite again, pinned to 10 awkward minutes
+npm run test:all   # both of the above
 ```
 
 `npm run serve` uses `tools/serve.mjs` (no dependencies, correct MIME types, 404 page). Opening
@@ -198,7 +202,7 @@ MIT. The licence covers the code only — see the [disclaimer](disclaimer.html) 
 ## 🤝 Contributing
 
 1. Fork the repository and create a branch.
-2. Make the change, then run `npm test` — both suites should stay green.
+2. Make the change, then run `npm test` — every suite should stay green.
 3. Open a pull request describing the behaviour change.
 
 Found a bug, or a passage that should be removed? Open an issue.

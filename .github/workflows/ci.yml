@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   test:
-    name: Smoke test
+    name: Test suites
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Check out the repository
@@ -31,11 +31,34 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
-      - name: Run the test suites
+      - name: App, mixer and resilience suites
         run: npm test
 
-      - name: Check the service worker parses
-        run: node --check sw.js
+      - name: Prove the suite is independent of the time of day
+        # The reader picks a random passage from the current minute, so a test
+        # must hold at every minute — including the ones whose passages are very
+        # short. This ran flaky once; it does not any more.
+        run: npm run test:minutes
 
-      - name: Check the image curator parses
-        run: node --check generate-images.js
+      - name: Check every script parses
+        run: |
+          for file in sw.js generate-images.js; do node --check "$file"; done
+
+  # Belt and braces: the suite above pins Date for the minutes that used to
+  # fail. This job makes sure plain, unpinned runs stay green too.
+  repeat:
+    name: Repeat the suite ten times
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Run the smoke test ten times over
+        run: |
+          for i in $(seq 1 10); do
+            npm run test:app || exit 1
+          done

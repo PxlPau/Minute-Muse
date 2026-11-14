@@ -5,6 +5,7 @@
    ========================================================================== */
 
 import { startServer, installDom, projectRootUrl, teardown } from './jsdom-env.mjs';
+import { assertReaderNotBroken } from './assertions.mjs';
 
 const scenario = process.argv[2];
 const assert = (condition, message) => {
@@ -74,7 +75,7 @@ try {
     assert($('#backdrop'), 'backdrop missing');
     assert(!$('.backdrop__img.is-visible'), 'an image was shown despite the failure');
     assert($('#photo-credit').textContent.includes('Unsplash'), 'credit line lost');
-    assert($('#quote').textContent.length > 40, 'reading broke with the photography');
+    assertReaderNotBroken($);
     console.log('quiet gradient used, reading unaffected');
   }
 
@@ -83,7 +84,7 @@ try {
     assert(settings.focusMin === 25, `focusMin repaired to ${settings.focusMin}, expected 25`);
     assert(settings.theme === 'lamplight', `theme repaired to ${settings.theme}`);
     assert(/\d{2}:\d{2}/.test($('#clock-time').textContent), 'clock did not render');
-    assert($('#quote').textContent.length > 40, 'reading did not render');
+    assertReaderNotBroken($);
     app.engine.recover();
     assert(app.engine.snapshot(), 'engine could not produce a snapshot');
     console.log('settings, tasks and timer repaired to safe defaults');

@@ -8,9 +8,11 @@
     "start": "python3 -m http.server 8000",
     "serve": "node tools/serve.mjs",
     "test": "node tools/smoke-test.mjs && node tools/audio-test.mjs && node tools/resilience-test.mjs",
+    "test:all": "npm test && npm run test:minutes",
     "test:app": "node tools/smoke-test.mjs",
     "test:audio": "node tools/audio-test.mjs",
     "test:resilience": "node tools/resilience-test.mjs",
+    "test:minutes": "node tools/time-of-day-test.mjs",
     "curate": "node generate-images.js"
   },
   "keywords": [
