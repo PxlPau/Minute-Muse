@@ -1,0 +1,27 @@
+{
+  "name": "minute-muse",
+  "version": "3.0.0",
+  "private": true,
+  "description": "A literary focus workspace: a clock told through passages from books, with focus sessions, tasks, ambience and a private journal.",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "serve": "node tools/serve.mjs",
+    "test": "node tools/smoke-test.mjs && node tools/audio-test.mjs && node tools/resilience-test.mjs",
+    "test:app": "node tools/smoke-test.mjs",
+    "test:audio": "node tools/audio-test.mjs",
+    "test:resilience": "node tools/resilience-test.mjs",
+    "curate": "node generate-images.js"
+  },
+  "keywords": [
+    "focus",
+    "pomodoro",
+    "studying",
+    "literary-clock",
+    "ambient"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}

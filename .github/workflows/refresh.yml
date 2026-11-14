@@ -1,37 +1,53 @@
-name: Hourly Image Refresh
+name: Refresh the atmosphere
 
 on:
   schedule:
-    - cron: '41 * * * *' # Runs every hour
+    # Once a day is enough for photography; hourly churn burns API quota and
+    # fills the commit history. Staggered off the hour to avoid peak load.
+    - cron: '17 5 * * *'
   workflow_dispatch:
 
-# 👇 THIS BLOCK IS MISSING OR NOT WORKING 👇
 permissions:
   contents: write
-# 👆 THIS IS CRITICAL FOR GIT PUSH 👆
+
+concurrency:
+  group: refresh-images
+  cancel-in-progress: true
 
 jobs:
-  refresh-images:
+  refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Check out the repository
+        uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: npm
 
-      - name: Run Curator Script
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify the app still boots
+        run: npm test
+
+      - name: Curate new photographs
         env:
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: node generate-images.js
 
-      - name: Commit and Push New Images
+      - name: Commit refreshed images
         run: |
-          git config --global user.name "MinuteMuse Bot"
-          git config --global user.email "bot@minutemuse.com"
+          if git diff --quiet -- images.json; then
+            echo "No changes to images.json — nothing to commit."
+            exit 0
+          fi
+          git config user.name "Minute Muse Bot"
+          git config user.email "bot@minutemuse.com"
           git add images.json
-          # The logic below prevents failure if there are no changes
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Hourly image refresh" && git push)
+          git commit -m "chore: refresh atmospheric photography"
+          git push

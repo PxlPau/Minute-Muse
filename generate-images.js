@@ -123,45 +123,86 @@ async function fetchImages(seasonKey, period, count = 3) {
   }
 
   if (!images) {
-    console.error(`      ❌ API Error/Limits. Using static fallback.`);
-    return Array(count).fill({
-      url: 'https://unsplash.com/photos/snow-capped-mountain-reflected-in-a-calm-lake-fqZc-qHvqyM?w=1600',
-      name: 'Unsplash',
-      link: 'https://unsplash.com'
-    });
+    console.error(`      ❌ API error or rate limit — reusing the last known good set.`);
+    return null;
   }
 
   return images;
 }
 
-async function main() {
-  const currentSeasons = getCurrentSeasons();
-  console.log(`📅 Date detected. North: ${currentSeasons.north} | South: ${currentSeasons.south}`);
+/** Load the existing curation so a partial failure never loses good images. */
+function loadExisting() {
+  try {
+    return JSON.parse(fs.readFileSync('images.json', 'utf8'));
+  } catch {
+    return null;
+  }
+}
 
+async function main() {
+  if (!UNSPLASH_KEY) {
+    console.error('❌ UNSPLASH_ACCESS_KEY is not set. Nothing to do; images.json left untouched.');
+    process.exitCode = 1;
+    return;
+  }
+
+  const currentSeasons = getCurrentSeasons();
+  console.log(`📅 North: ${currentSeasons.north} | South: ${currentSeasons.south}`);
+
+  const existing = loadExisting();
   const collection = { north: {}, south: {}, tropical: {} };
-  
   const CATEGORIES = [
     { id: 'tropical', vibe: 'tropical' },
     { id: 'north', vibe: currentSeasons.north },
-    { id: 'south', vibe: currentSeasons.south }
+    { id: 'south', vibe: currentSeasons.south },
   ];
 
+  let fetched = 0;
+  let reused = 0;
+
   for (const cat of CATEGORIES) {
-    console.log(`\n📸 Processing: ${cat.id.toUpperCase()} (${cat.vibe})`);
-    
+    console.log(`\n📸 ${cat.id.toUpperCase()} (${cat.vibe})`);
     for (const period of Object.keys(PERIOD_THEMES)) {
-      process.stdout.write(`   Fetching ${period}... \n`);
-      await new Promise(r => setTimeout(r, 2000));
-      
-      const images = await fetchImages(cat.vibe, period, 3);
-      collection[cat.id][period] = images;
-      
-      if(images.length && images[0].name !== 'Unsplash') console.log(`   ✅ OK (${images.length} images)`);
+      await new Promise((r) => setTimeout(r, 1200));
+      const images = await fetchImages(cat.vibe, period, 4);
+
+      if (images && images.length) {
+        collection[cat.id][period] = images;
+        fetched += 1;
+        console.log(`   ✅ ${period}: ${images.length} images`);
+      } else {
+        // Keep yesterday's photographs rather than shipping dead links.
+        const previous = existing?.[cat.id]?.[period];
+        if (Array.isArray(previous) && previous.length) {
+          collection[cat.id][period] = previous;
+          reused += 1;
+          console.log(`   ↺ ${period}: kept the previous set`);
+        } else {
+          collection[cat.id][period] = [];
+          console.log(`   ⚠️ ${period}: no images available`);
+        }
+      }
     }
   }
 
-  fs.writeFileSync('images.json', JSON.stringify(collection, null, 2));
-  console.log("\n✅ Variety images.json generated!");
+  if (fetched === 0) {
+    console.error('\n❌ Unsplash returned nothing; images.json left untouched.');
+    process.exitCode = 1;
+    return;
+  }
+
+  // Drop empty buckets so the client falls back to its quiet gradient.
+  for (const cat of Object.values(collection)) {
+    for (const [period, list] of Object.entries(cat)) {
+      if (!list.length) delete cat[period];
+    }
+  }
+
+  fs.writeFileSync('images.json', `${JSON.stringify(collection, null, 2)}\n`);
+  console.log(`\n✅ images.json written — ${fetched} buckets refreshed, ${reused} kept.`);
 }
 
-main();
+main().catch((error) => {
+  console.error('❌ Unexpected failure:', error);
+  process.exitCode = 1;
+});
