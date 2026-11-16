@@ -1,4 +1,4 @@
-const fs = require('fs');
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
@@ -84,15 +84,23 @@ function getCurrentSeasons() {
 async function runUnsplashSearch(query, count) {
   const url = `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&content_filter=high&count=${count}&client_id=${UNSPLASH_KEY}`;
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null; 
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) {
+      console.error(`      Unsplash responded with HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}.`);
+      return null;
+    }
     const data = await res.json();
-    return data.map(img => ({
+    if (!Array.isArray(data)) {
+      console.error('      Unsplash returned an unexpected response; expected a list of photos.');
+      return null;
+    }
+    return data.map((img) => ({
       url: img.urls.regular,
       name: img.user.name,
-      link: img.user.links.html
+      link: img.user.links.html,
     }));
   } catch (error) {
+    console.error(`      Unsplash request failed: ${error.message}`);
     return null;
   }
 }
@@ -133,7 +141,7 @@ async function fetchImages(seasonKey, period, count = 3) {
 /** Load the existing curation so a partial failure never loses good images. */
 function loadExisting() {
   try {
-    return JSON.parse(fs.readFileSync('images.json', 'utf8'));
+    return JSON.parse(readFileSync('images.json', 'utf8'));
   } catch {
     return null;
   }
@@ -198,7 +206,7 @@ async function main() {
     }
   }
 
-  fs.writeFileSync('images.json', `${JSON.stringify(collection, null, 2)}\n`);
+  writeFileSync('images.json', `${JSON.stringify(collection, null, 2)}\n`);
   console.log(`\n✅ images.json written — ${fetched} buckets refreshed, ${reused} kept.`);
 }
 

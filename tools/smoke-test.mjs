@@ -182,6 +182,18 @@ await check('tasks persist and render', () => {
   assert($('#task-list').querySelectorAll('.task').length === 1, 'task row not rendered');
 });
 
+await check('mobile focus, tasks and sounds dock buttons switch sheets', () => {
+  for (const sheet of ['focus', 'tasks', 'sounds']) {
+    const button = $(`[data-sheet="${sheet}"]`);
+    assert(button, `missing ${sheet} dock button`);
+    button.click();
+    assert(window.document.body.classList.contains('sheet-open'), `${sheet} sheet did not open`);
+    assert(window.document.body.dataset.sheet === sheet, `${sheet} sheet was not selected`);
+  }
+  $('#sheet-backdrop').click();
+  assert(!window.document.body.classList.contains('sheet-open'), 'sheet backdrop did not close the sheet');
+});
+
 await check('completing a focus round records history and moves to a break', () => {
   const { engine } = api;
   engine.begin({ phase: 'focus', round: 1 });

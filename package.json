@@ -7,7 +7,7 @@
   "scripts": {
     "start": "python3 -m http.server 8000",
     "serve": "node tools/serve.mjs",
-    "test": "node tools/smoke-test.mjs && node tools/audio-test.mjs && node tools/resilience-test.mjs",
+    "test": "node tools/smoke-test.mjs && node tools/audio-test.mjs && node tools/resilience-test.mjs && node tools/curator-test.mjs",
     "test:all": "npm test && npm run test:minutes",
     "test:app": "node tools/smoke-test.mjs",
     "test:audio": "node tools/audio-test.mjs",
