@@ -146,7 +146,8 @@ service worker, and the collection fetch.
 ### Refreshing the photography
 
 `generate-images.js` curates photographs by season and time of day into `images.json`. It is
-run nightly by `.github/workflows/refresh.yml`; locally:
+run every six hours by `.github/workflows/refresh.yml`; the scheduled job needs an
+`UNSPLASH_ACCESS_KEY` Actions secret in the repository settings. Locally:
 
 ```bash
 UNSPLASH_ACCESS_KEY=your_key npm run curate

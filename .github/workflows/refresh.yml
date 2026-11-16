@@ -2,9 +2,8 @@ name: Refresh the atmosphere
 
 on:
   schedule:
-    # Once a day is enough for photography; hourly churn burns API quota and
-    # fills the commit history. Staggered off the hour to avoid peak load.
-    - cron: '17 5 * * *'
+    # Refresh every six hours, staggered off the hour to avoid peak load.
+    - cron: '17 0,6,12,18 * * *'
   workflow_dispatch:
 
 permissions:

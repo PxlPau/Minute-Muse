@@ -2157,6 +2157,9 @@ body[data-text="lg"] { --quote-size: clamp(1.4rem, 1.1rem + 1vw, 1.98rem); }
 
 /* Responsive layout */
 @media (max-width: 1059px) {
+  /* The shell is a stacking context on desktop. Let the fixed rail escape it
+     on mobile so it can sit above the dimming sheet backdrop. */
+  body.sheet-open .shell { z-index: auto; }
   .rail {
     position: fixed;
     left: 0;
