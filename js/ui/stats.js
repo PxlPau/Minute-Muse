@@ -38,13 +38,15 @@ export class Stats {
 
   render() {
     const list = history.value;
-    const focusSessions = list.filter((entry) => entry.phase === 'focus' && entry.focusSec > 0);
+    const focusSessions = list.filter(
+      (entry) => entry.phase === 'focus' && (Number(entry.focusSec) || 0) > 0,
+    );
     const today = focusSecondsToday();
     const streak = focusStreak();
     const week = this.sumSeconds(this.lastDays(7));
     const completed = focusSessions.filter((entry) => entry.completed).length;
     const average = focusSessions.length
-      ? focusSessions.reduce((sum, entry) => sum + entry.focusSec, 0) / focusSessions.length
+      ? focusSessions.reduce((sum, entry) => sum + (Number(entry.focusSec) || 0), 0) / focusSessions.length
       : 0;
 
     const todayStat = formatStatMinutes(today);
@@ -123,8 +125,11 @@ export class Stats {
     const recent = focusSessions.slice(0, 12);
     this.sessions.innerHTML = recent
       .map((entry) => {
-        const minutes = Math.max(1, Math.round(entry.focusSec / 60));
-        const when = `${relativeDay(dayKey(new Date(entry.endedAt)))} · ${formatTimeOfDay(entry.endedAt)}`;
+        const minutes = Math.max(1, Math.round((Number(entry.focusSec) || 0) / 60));
+        const ended = new Date(entry.endedAt);
+        const when = Number.isNaN(ended.getTime())
+          ? formatTimeOfDay(entry.endedAt) || 'Date unknown'
+          : `${relativeDay(dayKey(ended))} · ${formatTimeOfDay(entry.endedAt)}`;
         const label = entry.task ? escapeHtml(entry.task) : entry.intent ? escapeHtml(entry.intent) : 'Open focus';
         return `
           <div class="result" style="cursor:default;">

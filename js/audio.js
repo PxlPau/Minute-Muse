@@ -205,18 +205,30 @@ export class Ambience {
     const ctx = this.ensureContext();
     if (!ctx) return false;
     await this.unlock();
+    if (!this.ctx || this.ctx !== ctx) return false;
+    if (this.isPlaying(id)) return true; // another start won while unlocking
 
-    // If a stop is mid-fade, finish it instantly before restarting.
+    // If a stop is mid-fade, finish it instantly before restarting. Passing
+    // the old channel through prevents its pending timer from killing the new
+    // channel a second later.
     const existing = this.channels.get(id);
-    if (existing) {
-      this.disposeChannel(ctx, id, 0.05);
-    }
+    if (existing) this.disposeChannel(ctx, id, 0, existing);
 
     const gain = ctx.createGain();
     gain.gain.value = 0;
     gain.connect(this.master);
 
-    const channel = { id, gain, filter: null, sources: [], playing: true, fadingOut: false };
+    const channel = {
+      id,
+      gain,
+      filter: null,
+      sources: [],
+      audio: null,
+      nodes: [],
+      playing: true,
+      fadingOut: false,
+      token: Symbol(id),
+    };
     let node;
     try {
       node = def.kind === 'file' ? this.buildFile(ctx, def) : this.buildSynth(ctx, def);
@@ -225,7 +237,10 @@ export class Ambience {
       gain.disconnect();
       return false;
     }
-    if (!node) return false;
+    if (!node) {
+      gain.disconnect();
+      return false;
+    }
 
     if (node.filter) {
       channel.filter = node.filter;
@@ -234,6 +249,8 @@ export class Ambience {
       node.output.connect(gain);
     }
     channel.sources = node.sources;
+    channel.audio = node.audio || null;
+    channel.nodes = node.nodes || [node.output];
     this.channels.set(id, channel);
 
     this.rampGain(gain, this.targetFor(id), FADE);
@@ -250,11 +267,15 @@ export class Ambience {
 
   stop(id, { fade = FADE } = {}) {
     const channel = this.channels.get(id);
-    if (!channel) return;
+    if (!channel || channel.fadingOut) return;
+    const seconds = Math.max(0, Number(fade) || 0);
     channel.playing = false;
     channel.fadingOut = true;
-    this.rampGain(channel.gain, 0, fade);
-    setTimeout(() => this.disposeChannel(this.ctx, id, 0), fade * 1000 + 80);
+    this.rampGain(channel.gain, 0, seconds);
+    setTimeout(() => {
+      if (this.channels.get(id) !== channel) return;
+      this.disposeChannel(this.ctx, id, 0, channel);
+    }, seconds * 1000 + 80);
     this.emit();
   }
 
@@ -262,16 +283,16 @@ export class Ambience {
     [...this.channels.keys()].forEach((id) => this.stop(id, { fade }));
   }
 
-  disposeChannel(ctx, id, delaySeconds = 0) {
+  disposeChannel(ctx, id, delaySeconds = 0, expectedChannel = null) {
     const channel = this.channels.get(id);
-    if (!channel) return;
+    if (!channel || (expectedChannel && channel !== expectedChannel)) return;
     this.channels.delete(id);
     const kill = () => {
       channel.sources.forEach((source) => {
         try {
           source.stop();
         } catch {
-          /* already stopped */
+          /* already stopped, or a media-element source has no stop() */
         }
         try {
           source.disconnect();
@@ -279,6 +300,23 @@ export class Ambience {
           /* ignore */
         }
       });
+      // MediaElementAudioSourceNode is not an AudioScheduledSourceNode: the
+      // HTMLAudioElement itself must be paused or it plays on invisibly.
+      if (channel.audio) {
+        try {
+          channel.audio.pause();
+          channel.audio.removeAttribute('src');
+        } catch {
+          /* ignore */
+        }
+      }
+      for (const node of channel.nodes || []) {
+        try {
+          node.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }
       try {
         channel.filter?.disconnect();
         channel.gain.disconnect();
@@ -304,13 +342,15 @@ export class Ambience {
     const source = ctx.createMediaElementSource(audio);
     audio.play().catch(() => {
       // The play promise rejects if the gesture didn't count; retry once the
-      // context is running (e.g. after the next tap).
+      // context is running (e.g. after the next tap), but never resurrect a
+      // layer that has since been stopped.
       const retry = () => {
-        audio.play().catch(() => {});
+        const stillActive = [...this.channels.values()].some((channel) => channel.audio === audio);
+        if (stillActive) audio.play().catch(() => {});
       };
       setTimeout(retry, 300);
     });
-    return { sources: [source], output: source, filter: null, audio };
+    return { sources: [source], output: source, filter: null, audio, nodes: [] };
   }
 
   buildSynth(ctx, def) {
@@ -337,7 +377,7 @@ export class Ambience {
       source.buffer = buffer;
       source.loop = true;
       source.connect(output);
-      return { sources: [source], output, filter: null };
+      return { sources: [source], output, filter: null, nodes: [output] };
     }
 
     if (def.kind === 'synth-waves') {
@@ -377,7 +417,12 @@ export class Ambience {
       swellLfo.connect(swellDepth).connect(swells.gain);
 
       source.connect(lowpass).connect(swells).connect(output);
-      return { sources: [source, lfo, swellLfo], output, filter: null };
+      return {
+        sources: [source, lfo, swellLfo],
+        output,
+        filter: null,
+        nodes: [output, lowpass, lfoGain, swells, swellDepth],
+      };
     }
 
     return null;
@@ -403,9 +448,12 @@ export class Ambience {
   }
 
   dispose() {
-    [...this.channels.keys()].forEach((id) => this.disposeChannel(this.ctx, id));
-    this.ctx?.close().catch(() => {});
+    const ctx = this.ctx;
+    [...this.channels.keys()].forEach((id) => this.disposeChannel(ctx, id, 0));
+    ctx?.close().catch(() => {});
     this.ctx = null;
+    this.master = null;
+    this.unlocked = false;
   }
 }
 

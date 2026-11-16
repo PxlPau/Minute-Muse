@@ -35,11 +35,31 @@ export class SessionEngine {
   }
 
   /* --------------------------------------------------------------- derived */
-  plannedSeconds(phase = timerState.value.phase) {
+  /** A fresh phase always uses current settings. */
+  durationForPhase(phase) {
     const { focusMin, shortMin, longMin } = settings.value;
     if (phase === 'short') return shortMin * 60;
     if (phase === 'long') return longMin * 60;
     return focusMin * 60;
+  }
+
+  /**
+   * Active phases keep the duration they began with; editing a duration in
+   * Settings must not retroactively change the countdown, progress bar, or
+   * logged focus time. Idle phases use the latest preference.
+   */
+  plannedSeconds(phase = timerState.value.phase) {
+    const state = timerState.value;
+    const frozen = Number(state.plannedSec);
+    if (
+      state.status !== 'idle' &&
+      phase === state.phase &&
+      Number.isFinite(frozen) &&
+      frozen > 0
+    ) {
+      return frozen;
+    }
+    return this.durationForPhase(phase);
   }
 
   get isRunning() {
@@ -70,13 +90,14 @@ export class SessionEngine {
 
   /* --------------------------------------------------------------- actions */
   begin({ phase = 'focus', round = 1, intent = null, taskId = null } = {}) {
-    const planned = this.plannedSeconds(phase);
+    const planned = this.durationForPhase(phase);
     timerState.set({
       phase,
       status: 'running',
       round,
       endsAt: new Date(Date.now() + planned * 1000).toISOString(),
       remainingSec: null,
+      plannedSec: planned,
       startedAt: new Date().toISOString(),
       focusSec: 0,
       taskId,
@@ -152,6 +173,7 @@ export class SessionEngine {
       status: 'idle',
       endsAt: null,
       remainingSec: null,
+      plannedSec: null,
       startedAt: null,
       focusSec: 0,
       intent: next.phase === 'focus' ? null : state.intent,
@@ -169,6 +191,7 @@ export class SessionEngine {
       status: 'idle',
       endsAt: null,
       remainingSec: null,
+      plannedSec: null,
       startedAt: null,
       focusSec: 0,
       phase: 'focus',
@@ -208,6 +231,7 @@ export class SessionEngine {
       status: 'idle',
       endsAt: null,
       remainingSec: null,
+      plannedSec: null,
       startedAt: null,
       focusSec: 0,
       intent: nextPhase === 'focus' ? null : state.intent,
@@ -274,6 +298,7 @@ export class SessionEngine {
       status: 'idle',
       endsAt: null,
       remainingSec: null,
+      plannedSec: null,
       startedAt: null,
       focusSec: 0,
       intent: null,

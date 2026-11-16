@@ -1,3 +1,5 @@
+import { setScrollLock } from '../util.js';
+
 /* =============================================================================
    overlays.js — one place that owns open/close behaviour for every surface
    Handles: focus trapping, Escape, backdrop clicks, scroll locking, and
@@ -23,9 +25,13 @@ class OverlayManager {
   /** @param {HTMLElement} el the overlay or drawer root */
   open(el, { onClose = null, id = el.id } = {}) {
     if (!el || this.stack.some((entry) => entry.el === el)) return;
+    // A token tells stale close/reopen animation timers apart.
+    const token = String(Number(el.dataset.overlayToken || 0) + 1);
+    el.dataset.overlayToken = token;
     const entry = {
       el,
       id,
+      token,
       onClose,
       previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
     };
@@ -34,8 +40,12 @@ class OverlayManager {
     el.hidden = false;
     el.removeAttribute('aria-hidden');
     // Two frames so the element paints before transitions begin.
-    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('is-closing')));
-    document.body.classList.add('has-overlay');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (this.stack.some((item) => item.el === el && item.token === token)) {
+        el.classList.remove('is-closing');
+      }
+    }));
+    setScrollLock('overlays', true);
 
     const focusTarget =
       el.querySelector('[data-autofocus]') ||
@@ -60,13 +70,22 @@ class OverlayManager {
     entry.el.classList.add('is-closing');
 
     const finish = () => {
+      // A newer open() invalidates this close animation.
+      if (entry.el.dataset.overlayToken !== entry.token) return;
+      if (this.stack.some((item) => item.el === entry.el)) return;
       entry.el.hidden = true;
       entry.el.classList.remove('is-closing');
     };
     if (immediate) finish();
     else setTimeout(finish, 220);
 
-    if (entry.previousFocus && document.contains(entry.previousFocus)) {
+    const top = this.top;
+    if (top) {
+      const target = top.el.querySelector('[data-autofocus]')
+        || top.el.querySelector('.modal, .drawer')
+        || top.el;
+      target?.focus?.({ preventScroll: true });
+    } else if (entry.previousFocus && document.contains(entry.previousFocus)) {
       entry.previousFocus.focus?.({ preventScroll: true });
     }
     this.syncBody();
@@ -96,7 +115,7 @@ class OverlayManager {
   }
 
   syncBody() {
-    document.body.classList.toggle('has-overlay', this.stack.length > 0);
+    setScrollLock('overlays', this.stack.length > 0);
   }
 
   handleKeydown(event) {
@@ -104,7 +123,9 @@ class OverlayManager {
     if (!top) return;
 
     if (event.key === 'Escape') {
-      event.stopPropagation();
+      // stopPropagation alone does not stop other listeners on `document`;
+      // this one Escape must close exactly the top surface.
+      event.stopImmediatePropagation();
       event.preventDefault();
       this.closeTop();
       return;
@@ -137,7 +158,8 @@ export function wireOverlay(el) {
   el.querySelectorAll('[data-close]').forEach((button) => {
     button.addEventListener('click', () => overlays.close(el));
   });
-  el.addEventListener('mousedown', (event) => {
+  // `click` includes touch and pen activation; `mousedown` did not.
+  el.addEventListener('click', (event) => {
     if (event.target === el) overlays.close(el);
   });
   return el;

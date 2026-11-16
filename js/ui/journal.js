@@ -58,12 +58,17 @@ export class Journal {
   }
 
   open({ tab = 'notes', passage = null, openSaved = false } = {}) {
+    // Save a pending edit before hydrating from storage; flush is a no-op if
+    // the user has not typed since opening the drawer.
+    this.autosave.flush();
     if (openSaved) tab = 'saved';
     this.selectTab(tab === 'saved' ? 'panel-saved' : 'panel-notes');
     if (passage) this.reflectPassage = passage;
     this.syncContext();
     this.hydrate();
-    this.overlays.open(this.drawer);
+    // Escape/backdrop closes bypass close(), so the overlay manager still needs
+    // to flush a pending edit whenever the drawer goes away.
+    this.overlays.open(this.drawer, { onClose: () => this.autosave.flush() });
     window.setTimeout(() => this.textarea?.focus({ preventScroll: true }), 260);
   }
 
@@ -85,7 +90,7 @@ export class Journal {
 
   hydrate() {
     const note = getTodayNote();
-    this.textarea.value = note?.text || '';
+    this.textarea.value = typeof note?.text === 'string' ? note.text : '';
     this.updateWordcount();
     this.setStatus('saved', note ? 'Saved on this device' : 'Nothing written yet');
   }
@@ -102,7 +107,8 @@ export class Journal {
   }
 
   save() {
-    const text = this.textarea?.value || '';
+    if (!this.textarea) return;
+    const text = this.textarea.value || '';
     const passage = this.reflectPassage;
     saveNote(text, passage ? { type: 'passage', quote: passage.quote, author: passage.author, title: passage.title } : undefined);
     this.setStatus('saved', 'Saved on this device');
@@ -136,9 +142,13 @@ export class Journal {
     const items = bookmarks.value;
     this.savedEmpty.hidden = items.length > 0;
     this.savedList.innerHTML = items
-      .map(
-        (item) => `
-        <article class="passage" data-bookmark-id="${item.id}">
+      .map((item) => {
+        const safeId = escapeHtml(item.id || '');
+        const safeMinute = escapeHtml(item.minute || '');
+        const savedDay = typeof item.savedAt === 'string' ? item.savedAt.slice(0, 10) : '';
+        const savedLabel = savedDay ? escapeHtml(relativeDay(savedDay)) : '';
+        return `
+        <article class="passage" data-bookmark-id="${safeId}">
           <p class="passage__quote">“${escapeHtml(item.quote)}”</p>
           <div class="passage__meta">
             <span>${escapeHtml(item.author)}${item.title ? ` · <em>${escapeHtml(item.title)}</em>` : ''}</span>
@@ -154,9 +164,9 @@ export class Journal {
               </button>
             </span>
           </div>
-          <span class="field-hint">Saved ${relativeDay(item.savedAt?.slice(0, 10) || '')}${item.minute ? ` · ${item.minute}` : ''}</span>
-        </article>`,
-      )
+          <span class="field-hint">Saved ${savedLabel}${safeMinute ? ` · ${safeMinute}` : ''}</span>
+        </article>`;
+      })
       .join('');
 
     this.savedList.onclick = async (event) => {
@@ -174,7 +184,14 @@ export class Journal {
         toast(ok ? 'Copied.' : 'Copying is blocked in this browser.', { icon: ok ? 'copy' : 'alert', tone: ok ? 'default' : 'warn' });
       } else if (button.dataset.action === 'read') {
         this.close();
-        this.reader.show({ ...item, quote: item.quote, author: item.author, title: item.title, key: item.minute, timeCase: item.timeCase });
+        this.reader.previewPassage({
+          ...item,
+          quote: item.quote,
+          author: item.author,
+          title: item.title,
+          key: item.minute,
+          timeCase: item.timeCase,
+        });
         toast('That passage is now open in the reader.', { icon: 'book' });
       }
     };

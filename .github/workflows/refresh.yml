@@ -17,6 +17,8 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
 
     steps:
       - name: Check out the repository
@@ -34,9 +36,12 @@ jobs:
       - name: Verify the app still boots
         run: npm test
 
+      - name: Report a missing Unsplash secret
+        if: env.UNSPLASH_ACCESS_KEY == ''
+        run: echo "::warning::UNSPLASH_ACCESS_KEY is not configured; keeping images.json unchanged."
+
       - name: Curate new photographs
-        env:
-          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+        if: env.UNSPLASH_ACCESS_KEY != ''
         run: node generate-images.js
 
       - name: Commit refreshed images

@@ -9,9 +9,10 @@ no runtime dependencies. Keeping it that way is part of the design.
 git clone https://github.com/PxlPau/Minute-Muse.git
 cd Minute-Muse
 npm install        # jsdom, for the test harness only
-npm run serve      # http://localhost:8000
-npm test           # app + mixer + resilience suites, in a headless DOM
+npm run serve        # http://localhost:8000
+npm test             # app + mixer + resilience + curator + static suites, in a headless DOM
 npm run test:minutes # the app suite pinned to ten awkward minutes of the day
+npm run test:static  # scripts, offline assets, and the quote collection
 ```
 
 There is no build step and no bundler. Edit a file, reload the page.
@@ -52,7 +53,7 @@ assert on the *length* of what the reader renders — assert on its structure
 `tools/assertions.mjs`, and if you touch anything time-sensitive, run
 `npm run test:minutes`, which pins the clock to the minutes that once caused a
 flaky build.
-4. If you change behaviour, update the README or the in-app copy that describes it.
+If you change behaviour, update the README or the in-app copy that describes it.
 
 ## Adding a sound
 

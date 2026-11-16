@@ -40,9 +40,9 @@ own device.
 **Support**
 
 - **Session tasks** — add, tick, rename, clear. Completed items sink quietly to the bottom.
-- **Layered ambience mixer** — rain, fireplace, forest, two jazz-free beds and two synthesised
-  ones. Every layer has its own volume and fades independently, so you can build a room
-  instead of switching a track. Saved presets for common blends.
+- **Layered ambience mixer** — five recorded loops (rain, fireplace, two forest beds and
+  jazz) plus two synthesised beds. Every layer has its own volume and fades independently,
+  so you can build a room instead of switching a track. Saved presets for common blends.
 - **Journal** — day-keyed notes that autosave as you type, plus your saved passages.
 - **Focus record** — today, this week, typical session, streak, fourteen days of bars, and a
   log of recent sessions. Only time actually spent counts.
@@ -102,14 +102,16 @@ js/
     settings-panel.js   preferences and data controls
 tools/
   serve.mjs             zero-dependency static server (npm run serve)
-  smoke-test.mjs        boots the app in jsdom and asserts 31 behaviours
+  smoke-test.mjs        boots the app in jsdom and asserts core behaviours
+  static-test.mjs       checks scripts, offline assets, and the quote collection
   audio-test.mjs        exercises the mixer against a stub Web Audio graph
-  resilience-test.mjs   boots four failure modes and checks recovery
+  resilience-test.mjs   boots five failure modes and checks recovery
+  curator-test.mjs      checks the image curator's missing-key and outage paths
   time-of-day-test.mjs  reruns the suite at the minutes that used to flake
   assertions.mjs        shared "did a passage really render" helpers
   jsdom-env.mjs         the test harness: loopback server + DOM environment
 sw.js                   offline shell (stale-while-revalidate)
-generate-images.js      nightly photography curator (GitHub Action)
+generate-images.js      six-hour photography curator (GitHub Action)
 ```
 
 ### Design decisions worth knowing
@@ -133,15 +135,16 @@ generate-images.js      nightly photography curator (GitHub Action)
 ## 🚀 Running it locally
 
 ```bash
-npm run serve      # http://localhost:8000
-npm test           # 31 app + 13 mixer + 4 resilience checks, headless
+npm run serve        # http://localhost:8000
+npm test             # app + mixer + resilience + curator + static suites, headless
 npm run test:minutes # the app suite again, pinned to 10 awkward minutes
-npm run test:all   # both of the above
+npm run test:static  # scripts, offline assets, and the quote collection
+npm run test:all     # test + the time-of-day matrix
 ```
 
-`npm run serve` uses `tools/serve.mjs` (no dependencies, correct MIME types, 404 page). Opening
-`index.html` from the filesystem also works, but a server is required for the modules, the
-service worker, and the collection fetch.
+`npm run serve` uses `tools/serve.mjs` (no dependencies, correct MIME types, 404 page). A server
+is required: native ES modules, the service worker, and the collection fetch do not work
+reliably from `file://`.
 
 ### Refreshing the photography
 
@@ -153,8 +156,9 @@ run every six hours by `.github/workflows/refresh.yml`; the scheduled job needs 
 UNSPLASH_ACCESS_KEY=your_key npm run curate
 ```
 
-If Unsplash is unavailable the curator keeps the previous set rather than writing dead links,
-and the client falls back to its quiet gradient.
+The scheduled job skips cleanly when the secret is not configured. If Unsplash is unavailable,
+the curator keeps the previous set rather than writing dead links, and the client falls back
+to its quiet gradient.
 
 ---
 
@@ -196,7 +200,8 @@ All recorded loops are public domain (CC0):
 *Night waves* and *Deep brown noise* are synthesised in the browser with the Web Audio API.
 
 ### Code
-MIT. The licence covers the code only — see the [disclaimer](disclaimer.html) for the assets.
+Code is [MIT licensed](LICENSE). The licence covers the code only — see the
+[disclaimer](disclaimer.html) for the assets.
 
 ---
 

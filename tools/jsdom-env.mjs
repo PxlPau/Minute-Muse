@@ -21,12 +21,27 @@ export async function startServer() {
     '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
     '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png',
     '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg',
-    '.wav': 'audio/wav', '.m4a': 'audio/mp4',
+    '.wav': 'audio/wav', '.m4a': 'audio/mp4', '.mjs': 'text/javascript',
+    '.txt': 'text/plain', '.woff2': 'font/woff2',
   };
   const server = http.createServer(async (req, res) => {
-    let pathname = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
+    } catch {
+      res.writeHead(400).end('Bad request');
+      return;
+    }
+    if (pathname.split('/').some((part) => part.startsWith('.') && part !== '.' && part !== '..')) {
+      res.writeHead(403).end('Forbidden');
+      return;
+    }
     if (pathname.endsWith('/')) pathname += 'index.html';
-    const filePath = path.join(projectRoot, pathname);
+    const filePath = path.resolve(projectRoot, `.${pathname}`);
+    if (filePath !== projectRoot && !filePath.startsWith(projectRoot + path.sep)) {
+      res.writeHead(403).end('Forbidden');
+      return;
+    }
     try {
       const body = await readFile(filePath);
       res.writeHead(200, { 'Content-Type': types[path.extname(filePath)] || 'application/octet-stream' });

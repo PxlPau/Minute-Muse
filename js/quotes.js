@@ -59,19 +59,25 @@ class PassageEngine {
       const data = await response.json();
       if (!data || typeof data !== 'object') throw new Error('Unexpected format');
 
-      // Normalise once so the rest of the app can trust the shape.
-      const cleaned = {};
+      // Normalise once so the rest of the app can trust the shape. The JSON is
+      // a static upstream dataset, not code: reject bad keys and coerce every
+      // text field before the reader or search engine touches it.
+      const cleaned = Object.create(null);
       let total = 0;
+      const asText = (value, fallback = '') =>
+        (typeof value === 'string' ? value : value == null ? fallback : String(value)).trim();
       for (const [key, entries] of Object.entries(data)) {
-        if (!Array.isArray(entries)) continue;
-        const minutes = entries.filter((entry) => entry && typeof entry.quote === 'string' && entry.quote.trim());
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(key) || !Array.isArray(entries)) continue;
+        const minutes = entries.filter(
+          (entry) => entry && typeof entry.quote === 'string' && asText(entry.quote),
+        );
         if (!minutes.length) continue;
         cleaned[key] = dedupe(
           minutes.map((entry) => ({
-            quote: entry.quote.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim(),
-            author: (entry.author || 'Unknown').trim(),
-            title: (entry.title || '').trim(),
-            timeCase: (entry.time_case || '').trim(),
+            quote: asText(entry.quote).replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim(),
+            author: asText(entry.author, 'Unknown') || 'Unknown',
+            title: asText(entry.title),
+            timeCase: asText(entry.time_case),
           })),
         );
         total += cleaned[key].length;
@@ -81,20 +87,26 @@ class PassageEngine {
       this.total = total;
       this.minuteCount = Object.keys(cleaned).length;
       this.state = QUOTE_STATE.ready;
-      this.onReady.forEach((fn) => fn(this));
-      this.onReady.clear();
+      this.settleWaiters();
       return true;
     } catch (error) {
       console.warn('[quotes] collection unavailable', error);
       this.db = {};
       this.state = QUOTE_STATE.error;
+      // A failed load must not leave `whenReady()` promises pending forever.
+      this.settleWaiters();
       return false;
     }
   }
 
+  settleWaiters() {
+    this.onReady.forEach((fn) => fn(this));
+    this.onReady.clear();
+  }
+
   /** Resolve once the collection has loaded (or failed). */
   whenReady() {
-    if (this.state !== QUOTE_STATE.loading) return Promise.resolve(this.state);
+    if (this.state !== QUOTE_STATE.loading) return Promise.resolve(this);
     return new Promise((resolve) => {
       this.onReady.add(resolve);
     });
@@ -111,7 +123,10 @@ class PassageEngine {
 
     // Some minutes are empty in the source data; borrow from the closest minute
     // so the reader is never blank. Search outwards, minute by minute.
-    const [hours, minutes] = key.split(':').map(Number);
+    const parts = /^(\d{1,2}):(\d{1,2})$/.exec(String(key));
+    if (!parts) return [];
+    const [, hours, minutes] = parts.map(Number);
+    if (hours > 23 || minutes > 59) return [];
     const start = hours * 60 + minutes;
     for (let offset = 1; offset <= 180; offset += 1) {
       for (const direction of [1, -1]) {
@@ -128,8 +143,9 @@ class PassageEngine {
     if (!pool.length) return null;
 
     let choice = pool[0];
-    if (typeof index === 'number') {
-      choice = pool[index % pool.length];
+    if (Number.isFinite(index)) {
+      const offset = ((Math.trunc(index) % pool.length) + pool.length) % pool.length;
+      choice = pool[offset];
     } else {
       const alternatives = pool.length > 1 && avoid ? pool.filter((entry) => entry.quote !== avoid) : pool;
       choice = alternatives[Math.floor(Math.random() * alternatives.length)] || pool[0];
@@ -144,15 +160,19 @@ class PassageEngine {
     const plain = passage.quote;
     let html = escapeHtml(plain);
 
-    const phrase = passage.timeCase;
+    // Find the phrase in the original text, then escape each slice. Searching
+    // inside already-escaped HTML breaks on ampersands and Unicode case folding.
+    const phrase = String(passage.timeCase || '');
     if (phrase) {
-      const escapedPhrase = escapeHtml(phrase);
-      const index = html.toLowerCase().indexOf(escapedPhrase.toLowerCase());
-      if (index !== -1) {
+      const pattern = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const match = new RegExp(pattern, 'i').exec(plain);
+      if (match) {
+        const start = match.index;
+        const end = start + match[0].length;
         html =
-          html.slice(0, index) +
-          `<span class="time-highlight">${html.slice(index, index + escapedPhrase.length)}</span>` +
-          html.slice(index + escapedPhrase.length);
+          escapeHtml(plain.slice(0, start)) +
+          `<span class="time-highlight">${escapeHtml(plain.slice(start, end))}</span>` +
+          escapeHtml(plain.slice(end));
       }
     }
     return { html, plain };
@@ -181,7 +201,9 @@ class PassageEngine {
       for (const entry of entries) {
         scanned += 1;
         if (needle) {
-          const haystack = `${entry.quote} ${entry.author} ${entry.title} ${key}`.toLowerCase();
+          const haystack = filter === 'author'
+            ? String(entry.author || '').toLowerCase()
+            : `${entry.quote} ${entry.author} ${entry.title} ${key}`.toLowerCase();
           if (!haystack.includes(needle)) continue;
         }
         results.push({ ...entry, key });

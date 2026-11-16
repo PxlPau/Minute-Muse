@@ -44,6 +44,9 @@ class FakeAudioContext {
 }
 window.AudioContext = FakeAudioContext;
 window.webkitAudioContext = FakeAudioContext;
+let audioPauses = 0;
+window.HTMLMediaElement.prototype.play = () => Promise.resolve();
+window.HTMLMediaElement.prototype.pause = () => { audioPauses += 1; };
 
 const { Ambience, SOUND_LIST, SOUND_PRESETS, playChime } = await import(new URL('js/audio.js', projectRootUrl).href);
 
@@ -95,6 +98,7 @@ await check('stopping fades then disposes', async () => {
   amb.stop('rain', { fade: 0.01 });
   await new Promise(r => setTimeout(r, 120));
   assert(!amb.channels.has('rain'), 'channel not disposed after fade');
+  assert(audioPauses > 0, 'the HTMLAudioElement kept playing after its channel was disposed');
 });
 
 await check('toggle is idempotent', async () => {
@@ -105,6 +109,21 @@ await check('toggle is idempotent', async () => {
   await new Promise(r => setTimeout(r, 120));
   assert(second === false, 'second toggle did not stop');
   assert(!amb.isPlaying('fire'), 'still playing after stop');
+});
+
+await check('a layer restarted mid-fade stays alive', async () => {
+  const first = await amb.start('forest');
+  assert(first, 'forest did not start');
+  amb.stop('forest', { fade: 0.1 });
+  const restarted = await amb.start('forest');
+  assert(restarted, 'forest did not restart');
+  await new Promise(r => setTimeout(r, 250));
+  assert(
+    amb.channels.has('forest') && amb.isPlaying('forest'),
+    'a stale fade-out timer disposed the restarted channel',
+  );
+  amb.stop('forest', { fade: 0.01 });
+  await new Promise(r => setTimeout(r, 120));
 });
 
 await check('muting ramps to zero and back', () => {
