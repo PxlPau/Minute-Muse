@@ -48,7 +48,9 @@ let audioPauses = 0;
 window.HTMLMediaElement.prototype.play = () => Promise.resolve();
 window.HTMLMediaElement.prototype.pause = () => { audioPauses += 1; };
 
-const { Ambience, SOUND_LIST, SOUND_PRESETS, playChime } = await import(new URL('js/audio.js', projectRootUrl).href);
+const {
+  Ambience, SOUND_LIST, SOUND_PRESETS, SOUNDSCAPES, CATEGORIES, playChime,
+} = await import(new URL('js/audio.js', projectRootUrl).href);
 
 const results = [];
 const check = async (name, fn) => {
@@ -64,9 +66,49 @@ await check('nothing plays before a gesture', () => {
   assert(amb.ctx === null, 'context created without a gesture');
 });
 
-await check('seven layers are offered', () => {
-  assert(SOUND_LIST.length === 7, `got ${SOUND_LIST.length}`);
+await check('a large, categorised catalogue is offered', () => {
+  assert(SOUND_LIST.length >= 30, `got ${SOUND_LIST.length}`);
   assert(SOUND_LIST.every(s => s.id && s.name && s.credit), 'incomplete layer metadata');
+  assert(SOUND_LIST.every(s => CATEGORIES.includes(s.category)), 'a bed has no known category');
+  for (const category of CATEGORIES) {
+    assert(SOUND_LIST.some(s => s.category === category), `category ${category} is empty`);
+  }
+  const ids = new Set(SOUND_LIST.map(s => s.id));
+  assert(ids.size === SOUND_LIST.length, 'duplicate sound ids');
+});
+
+await check('every preset names real beds only', () => {
+  const ids = new Set(SOUND_LIST.map(s => s.id));
+  for (const preset of SOUND_PRESETS) {
+    for (const id of Object.keys(preset.mix)) {
+      assert(ids.has(id), `preset ${preset.id} references unknown ${id}`);
+    }
+  }
+});
+
+await check('every synthesised recipe builds without throwing', async () => {
+  const probe = new Ambience({});
+  for (const sound of SOUNDSCAPES) {
+    if (sound.kind !== 'recipe') continue;
+    const started = await probe.start(sound.id);
+    assert(started, `${sound.id} did not start`);
+    probe.stop(sound.id, { fade: 0 });
+  }
+  await new Promise(r => setTimeout(r, 60));
+  probe.dispose();
+});
+
+await check('stopping a recipe clears its schedulers', async () => {
+  const probe = new Ambience({});
+  await probe.start('crickets');
+  const channel = probe.channels.get('crickets');
+  assert(channel, 'crickets did not start');
+  assert(channel.registry.timers.length > 0, 'a generative bed registered no timers');
+  probe.stop('crickets', { fade: 0 });
+  // stop() always allows its 80 ms fade-out guard before disposal.
+  await new Promise(r => setTimeout(r, 160));
+  assert(!probe.channels.has('crickets'), 'channel was not disposed');
+  probe.dispose();
 });
 
 await check('a file layer starts and fades in', async () => {

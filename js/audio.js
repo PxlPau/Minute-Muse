@@ -1,9 +1,11 @@
 /* =============================================================================
    audio.js — layered ambience mixer
    Sounds fade in and out independently so layers can be blended like a mixer
-   rather than switched like tracks. File sounds loop from /audio; two extra
-   beds (waves, deep noise) are synthesised locally with the Web Audio API, so
-   the mixer is useful offline too.
+   rather than switched like tracks. A handful of field recordings loop from
+   /audio; every other bed is synthesised locally from the recipes in
+   soundscapes.js, so the mixer is useful offline and costs almost nothing to
+   ship. Each channel owns a registry of the nodes and timers it created, so
+   stopping a sound tears down its generators as well as its gain.
 
    Rules this module enforces:
    · Nothing plays until the user has interacted (browser policy + good manners).
@@ -11,79 +13,11 @@
    · Focus sessions duck the ambience slightly; breaks let it breathe back.
    ========================================================================== */
 
-const SOUNDS = [
-  {
-    id: 'rain',
-    name: 'Tropical rain',
-    credit: 'pablodavilla · CC0',
-    kind: 'file',
-    icon: 'rain',
-    src: 'audio/503167__pablodavilla__tropical_rain_01.wav',
-    tag: 'Rain',
-  },
-  {
-    id: 'fire',
-    name: 'Cozy fireplace',
-    credit: 'true_killian · CC0',
-    kind: 'file',
-    icon: 'flame',
-    src: 'audio/760474__true_killian__fireplace.m4a',
-    tag: 'Warm',
-  },
-  {
-    id: 'forest',
-    name: 'Forest birds I',
-    credit: 'titi2 · CC0',
-    kind: 'file',
-    icon: 'leaf',
-    src: 'audio/567531__titi2__silent-forest_birds_210410_0059.wav',
-    tag: 'Nature',
-  },
-  {
-    id: 'forest2',
-    name: 'Forest birds II',
-    credit: 'sama66 · CC0',
-    kind: 'file',
-    icon: 'leaf',
-    src: 'audio/462137__sama66__forest-bird-1.wav',
-    tag: 'Nature',
-  },
-  {
-    id: 'jazz',
-    name: 'Smooth jazz',
-    credit: 'amandedou · CC0',
-    kind: 'file',
-    icon: 'music',
-    src: 'audio/317673__amandedou__amande_3201.mp3',
-    tag: 'Music',
-  },
-  {
-    id: 'waves',
-    name: 'Night waves',
-    credit: 'synthesised · CC0',
-    kind: 'synth-waves',
-    icon: 'waves',
-    tag: 'Synthetic',
-  },
-  {
-    id: 'brown',
-    name: 'Deep brown noise',
-    credit: 'synthesised · CC0',
-    kind: 'synth-brown',
-    icon: 'coffee',
-    tag: 'Synthetic',
-  },
-];
+import {
+  SOUNDSCAPES, SOUND_BY_ID, SOUND_LIST, SOUND_PRESETS, CATEGORIES, buildSoundscape,
+} from './soundscapes.js';
 
-export const SOUND_LIST = SOUNDS.map(({ id, name, credit, icon, tag }) => ({ id, name, credit, icon, tag }));
-
-export const SOUND_PRESETS = [
-  { id: 'rain', label: 'Rain desk', mix: { rain: 0.42, brown: 0.14 } },
-  { id: 'hearth', label: 'Hearth', mix: { fire: 0.44, brown: 0.1 } },
-  { id: 'forest', label: 'Forest window', mix: { forest: 0.34, waves: 0.12 } },
-  { id: 'library', label: 'Library hush', mix: { brown: 0.36, rain: 0.1 } },
-  { id: 'late', label: 'Late night', mix: { jazz: 0.2, rain: 0.24 } },
-];
+export { SOUNDSCAPES, SOUND_LIST, SOUND_PRESETS, CATEGORIES };
 
 const FADE = 1.4; // seconds for toggles
 const DUCK = 0.55; // multiplier while focusing
@@ -96,6 +30,7 @@ export class Ambience {
     this.ctx = null;
     this.master = null;
     this.masterGain = 1;
+    this.musicDuck = 1;
     this.channels = new Map(); // id → { gain, filter, sources, playing, fadingOut }
     this.onStateChange = null;
     this.unlocked = false;
@@ -154,22 +89,32 @@ export class Ambience {
   }
 
   setMasterDuck(ducked) {
-    const target = (this.muted ? 0 : 1) * (ducked ? DUCK : 1);
     this.masterGain = ducked ? DUCK : 1;
+    this.applyMaster(ducked ? 0.5 : DUCK_RAMP);
+  }
+
+  /**
+   * Music and ambience should not fight. While a record is playing the beds step
+   * back a little, and step forward again when the record stops.
+   */
+  setMusicDuck(ducked) {
+    this.musicDuck = ducked ? 0.62 : 1;
+    this.applyMaster(2.2);
+  }
+
+  /** The one place master gain is computed, so the two ducks compose. */
+  applyMaster(seconds = 0.6) {
     if (!this.ctx || !this.master) return;
+    const target = this.muted ? 0 : this.masterGain * this.musicDuck;
     const now = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(this.master.gain.value, now);
-    this.master.gain.linearRampToValueAtTime(this.muted ? 0 : target, now + DUCK_RAMP);
+    this.master.gain.linearRampToValueAtTime(target, now + seconds);
   }
 
   setMuted(muted) {
     this.muted = muted;
-    if (!this.ctx || !this.master) return;
-    const now = this.ctx.currentTime;
-    this.master.gain.cancelScheduledValues(now);
-    this.master.gain.setValueAtTime(this.master.gain.value, now);
-    this.master.gain.linearRampToValueAtTime(muted ? 0 : this.masterGain, now + (muted ? 0.5 : FADE));
+    this.applyMaster(muted ? 0.5 : FADE);
     this.emit();
   }
 
@@ -198,7 +143,7 @@ export class Ambience {
   }
 
   async start(id) {
-    const def = SOUNDS.find((sound) => sound.id === id);
+    const def = SOUND_BY_ID.get(id);
     if (!def) return false;
     if (this.isPlaying(id)) return true;
 
@@ -228,10 +173,13 @@ export class Ambience {
       playing: true,
       fadingOut: false,
       token: Symbol(id),
+      registry: { nodes: [], timers: [], dynamic: new Set(), stoppers: [] },
     };
     let node;
     try {
-      node = def.kind === 'file' ? this.buildFile(ctx, def) : this.buildSynth(ctx, def);
+      node = def.kind === 'file'
+        ? this.buildFile(ctx, def)
+        : buildSoundscape(ctx, def, channel.registry);
     } catch (error) {
       console.warn('[ambience] could not start', id, error);
       gain.disconnect();
@@ -248,19 +196,16 @@ export class Ambience {
     } else {
       node.output.connect(gain);
     }
-    channel.sources = node.sources;
+    channel.sources = node.sources || [];
     channel.audio = node.audio || null;
     channel.nodes = node.nodes || [node.output];
     this.channels.set(id, channel);
 
     this.rampGain(gain, this.targetFor(id), FADE);
-    node.sources.forEach((source) => {
-      try {
-        source.start();
-      } catch (error) {
-        console.warn('[ambience] source start failed', error);
-      }
-    });
+    // Builders own their start/stop lifecycle: recipe engines start their
+    // generators themselves and hand back the nodes so disposal can reach them.
+    // (A MediaElementAudioSourceNode has no start(), and double-starting an
+    // oscillator or buffer would throw.)
     this.emit();
     return true;
   }
@@ -288,6 +233,37 @@ export class Ambience {
     if (!channel || (expectedChannel && channel !== expectedChannel)) return;
     this.channels.delete(id);
     const kill = () => {
+      // Recipe channels own scheduled grains and oscillators. Stop scheduling
+      // first, then clear any pending cleanup timers, then tear down whatever
+      // is still ringing.
+      for (const stop of channel.registry?.stoppers || []) {
+        try {
+          stop();
+        } catch {
+          /* ignore */
+        }
+      }
+      for (const timer of channel.registry?.timers || []) {
+        try {
+          window.clearTimeout(timer);
+          window.clearInterval(timer);
+        } catch {
+          /* ignore */
+        }
+      }
+      for (const node of channel.registry?.dynamic || []) {
+        try {
+          node.stop?.();
+        } catch {
+          /* ignore */
+        }
+        try {
+          node.disconnect?.();
+        } catch {
+          /* ignore */
+        }
+      }
+      channel.registry?.dynamic?.clear();
       channel.sources.forEach((source) => {
         try {
           source.stop();
@@ -353,79 +329,17 @@ export class Ambience {
     return { sources: [source], output: source, filter: null, audio, nodes: [] };
   }
 
+  /**
+   * Kept as the mixer's extension point: any non-file sound is a soundscape
+   * recipe from soundscapes.js. Returns null when the recipe is unusable.
+   */
   buildSynth(ctx, def) {
-    const output = ctx.createGain();
-    output.gain.value = 0.9;
-
-    if (def.kind === 'synth-brown') {
-      const seconds = 6;
-      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      let last = 0;
-      for (let i = 0; i < data.length; i += 1) {
-        const white = Math.random() * 2 - 1;
-        last = (last + 0.02 * white) / 1.02;
-        data[i] = last * 3.2;
-      }
-      // Seamless loop: crossfade the tail into the head.
-      const blend = Math.floor(ctx.sampleRate * 0.4);
-      for (let i = 0; i < blend; i += 1) {
-        const t = i / blend;
-        data[i] = data[i] * t + data[data.length - blend + i] * (1 - t);
-      }
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      source.connect(output);
-      return { sources: [source], output, filter: null, nodes: [output] };
-    }
-
-    if (def.kind === 'synth-waves') {
-      // Long, slow swells of filtered noise that rise and fall like surf.
-      const seconds = 8;
-      const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i += 1) {
-        data[i] = Math.random() * 2 - 1;
-      }
-      const blend = Math.floor(ctx.sampleRate * 0.5);
-      for (let i = 0; i < blend; i += 1) {
-        const t = i / blend;
-        data[i] = data[i] * t + data[data.length - blend + i] * (1 - t);
-      }
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-
-      const lowpass = ctx.createBiquadFilter();
-      lowpass.type = 'lowpass';
-      lowpass.frequency.value = 520;
-      lowpass.Q.value = 0.7;
-
-      const lfo = ctx.createOscillator();
-      lfo.frequency.value = 0.07;
-      const lfoGain = ctx.createGain();
-      lfoGain.gain.value = 260;
-      lfo.connect(lfoGain).connect(lowpass.frequency);
-
-      const swells = ctx.createGain();
-      swells.gain.value = 0.9;
-      const swellLfo = ctx.createOscillator();
-      swellLfo.frequency.value = 0.045;
-      const swellDepth = ctx.createGain();
-      swellDepth.gain.value = 0.28;
-      swellLfo.connect(swellDepth).connect(swells.gain);
-
-      source.connect(lowpass).connect(swells).connect(output);
-      return {
-        sources: [source, lfo, swellLfo],
-        output,
-        filter: null,
-        nodes: [output, lowpass, lfoGain, swells, swellDepth],
-      };
-    }
-
-    return null;
+    return buildSoundscape(ctx, def, {
+      nodes: [],
+      timers: [],
+      dynamic: new Set(),
+      stoppers: [],
+    });
   }
 
   /* ------------------------------------------------------------------ helpers */

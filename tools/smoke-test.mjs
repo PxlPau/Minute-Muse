@@ -329,24 +329,143 @@ await check('a running session survives a reload', () => {
   engine.reset();
 });
 
-await check('a lapsed session is closed quietly instead of counting', async () => {
-  // Simulate a tab that was closed for an hour: storage holds a session whose
-  // end time has long passed. A fresh engine (a fresh page load) must settle it.
-  const lapsed = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+await check('a session that finished while the tab was closed is credited on return', async () => {
+  // The tab was shut an hour ago; the phase ended while nobody was looking.
+  // Returning must settle it: logged once, rewarded, and back to idle.
+  const ended = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   window.localStorage.setItem('mm.timer', JSON.stringify({
     phase: 'focus', status: 'running', round: 1,
-    endsAt: lapsed, remainingSec: null,
+    endsAt: ended, remainingSec: null,
     startedAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+    plannedSec: 25 * 60, focusSec: 0, taskId: null, intent: null,
+  }));
+  const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
+  const { timerState: timerSignal, collection } = await import(new URL('js/store.js', projectRootUrl).href);
+  timerSignal.reload();
+  const before = (JSON.parse(window.localStorage.getItem('mm.history')) || []).length;
+  const inkBefore = collection.value.ink;
+  const fresh = new SessionEngine();
+  const recovery = fresh.recover();
+  const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
+  assert(after === before + 1, 'a session finished while closed was not recorded');
+  assert(recovery?.recovered, 'recover() did not report the away session');
+  assert(timerSignal.value.status === 'idle', `session left as "${timerSignal.value.status}"`);
+  assert(timerSignal.value.phase === 'short', `expected the next break, got ${timerSignal.value.phase}`);
+  const stored = JSON.parse(window.localStorage.getItem('mm.timer'));
+  assert(stored.status === 'idle', 'the settled session was not persisted as idle');
+  assert(collection.value.ink > inkBefore, 'the recovered session paid no ink');
+  const record = JSON.parse(window.localStorage.getItem('mm.history'))[0];
+  assert(record.recovered === true, 'the history entry does not admit it was recovered');
+  assert(record.focusSec === 25 * 60, `expected 25 minutes, logged ${record.focusSec}s`);
+
+  // Rewards are idempotent: replaying the same session pays nothing twice.
+  const { awardSession } = await import(new URL('js/rewards.js', projectRootUrl).href);
+  const inkAfter = collection.value.ink;
+  awardSession(record);
+  assert(collection.value.ink === inkAfter, 'the same session was paid out twice');
+});
+
+await check('a break that ended while away advances the cycle without paying', async () => {
+  const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
+  const { timerState: timerSignal, collection } = await import(new URL('js/store.js', projectRootUrl).href);
+  timerSignal.set({
+    phase: 'short', status: 'running', round: 1,
+    endsAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    remainingSec: null, plannedSec: 5 * 60,
+    startedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
     focusSec: 0, taskId: null, intent: null,
+  });
+  const before = (JSON.parse(window.localStorage.getItem('mm.history')) || []).length;
+  const inkBefore = collection.value.ink;
+  const engine = new SessionEngine();
+  const result = engine.recover();
+  assert(result?.recovered, 'the ended break was not settled');
+  assert(!result.record, 'a break was written to the focus history');
+  const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
+  assert(after === before, 'a recovered break logged a session');
+  assert(collection.value.ink === inkBefore, 'a recovered break paid ink');
+  assert(timerSignal.value.phase === 'focus', `expected focus next, got ${timerSignal.value.phase}`);
+  timerSignal.set({ ...timerSignal.value, status: 'idle', phase: 'focus', round: 1, endsAt: null, remainingSec: null });
+});
+
+await check('a session beyond the claim window is closed quietly', async () => {
+  // Thirty hours after a 25-minute session is not evidence of focus; it is a
+  // closed tab. It must not be credited.
+  const ancient = new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString();
+  window.localStorage.setItem('mm.timer', JSON.stringify({
+    phase: 'focus', status: 'running', round: 1,
+    endsAt: ancient, remainingSec: null,
+    startedAt: new Date(Date.now() - 31 * 60 * 60 * 1000).toISOString(),
+    plannedSec: 25 * 60, focusSec: 0, taskId: null, intent: null,
   }));
   const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
   const { timerState: timerSignal } = await import(new URL('js/store.js', projectRootUrl).href);
   timerSignal.reload();
+  const before = (JSON.parse(window.localStorage.getItem('mm.history')) || []).length;
   const fresh = new SessionEngine();
-  fresh.recover();
-  assert(timerSignal.value.status === 'idle', `lapsed session left as "${timerSignal.value.status}"`);
-  const stored = JSON.parse(window.localStorage.getItem('mm.timer'));
-  assert(stored.status === 'idle', `lapsed session still persisted as "${stored.status}"`);
+  const result = fresh.recover();
+  const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
+  assert(result?.expired, 'an ancient session was not reported as expired');
+  assert(after === before, 'an ancient session was credited anyway');
+  assert(timerSignal.value.status === 'idle', `ancient session left as "${timerSignal.value.status}"`);
+});
+
+await check('a tab restored days later cannot claim a forgotten session', async () => {
+  const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
+  const { timerState: timerSignal } = await import(new URL('js/store.js', projectRootUrl).href);
+  timerSignal.set({
+    phase: 'focus', status: 'running', round: 1,
+    endsAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(),
+    remainingSec: null, plannedSec: 25 * 60,
+    startedAt: new Date(Date.now() - 31 * 60 * 60 * 1000).toISOString(),
+    focusSec: 0, taskId: null, intent: null,
+  });
+  const before = (JSON.parse(window.localStorage.getItem('mm.history')) || []).length;
+  const engine = new SessionEngine();
+  engine.checkDrift();
+  const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
+  assert(after === before, 'a tab restored after a day was credited anyway');
+  assert(timerSignal.value.status === 'idle', 'the forgotten session is still running');
+});
+
+await check('waking a tab after the phase ended credits the round', async () => {
+  const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
+  const { timerState: timerSignal } = await import(new URL('js/store.js', projectRootUrl).href);
+  timerSignal.set({
+    phase: 'focus', status: 'running', round: 1,
+    endsAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    remainingSec: null, plannedSec: 25 * 60,
+    startedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    focusSec: 0, taskId: null, intent: null,
+  });
+  const before = (JSON.parse(window.localStorage.getItem('mm.history')) || []).length;
+  const engine = new SessionEngine();
+  engine.checkDrift();
+  const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
+  assert(after === before + 1, 'a phase that ended while the tab slept was not recorded');
+  const record = JSON.parse(window.localStorage.getItem('mm.history'))[0];
+  assert(record.focusSec === 25 * 60, `logged ${record.focusSec}s instead of the round`);
+  timerSignal.set({ ...timerSignal.value, phase: 'focus', status: 'idle', round: 1, endsAt: null, remainingSec: null });
+});
+
+await check('a live session resumes ticking after a reload and settles itself', async () => {
+  const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
+  const { timerState: timerSignal } = await import(new URL('js/store.js', projectRootUrl).href);
+  timerSignal.set({
+    phase: 'focus', status: 'running', round: 1,
+    endsAt: new Date(Date.now() + 1200).toISOString(),
+    remainingSec: null, plannedSec: 3,
+    startedAt: new Date().toISOString(), focusSec: 0, taskId: null, intent: null,
+  });
+  const before = (JSON.parse(window.localStorage.getItem('mm.history')) || []).length;
+  const fresh = new SessionEngine();
+  const result = fresh.recover();
+  assert(result?.resumed, 'recover() did not report a live session');
+  assert(fresh.isRunning, 'the resumed session is not ticking');
+  await new Promise((resolve) => setTimeout(resolve, 2600));
+  const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
+  assert(after === before + 1, 'a resumed session never settled itself when it ended');
+  fresh.reset();
 });
 
 await check('a session that ended moments ago still counts', async () => {
@@ -509,7 +628,7 @@ await check('focus record only counts focus phases', () => {
 await check('every ambience layer has a persisted default volume', async () => {
   const { SOUND_LIST } = await import(new URL('js/audio.js', projectRootUrl).href);
   const { DEFAULT_SETTINGS, patchSettings } = await import(new URL('js/store.js', projectRootUrl).href);
-  assert(SOUND_LIST.length === 7, 'unexpected sound list size');
+  assert(SOUND_LIST.length >= 30, `unexpected sound list size (${SOUND_LIST.length})`);
   assert(
     SOUND_LIST.every((sound) => Number.isFinite(DEFAULT_SETTINGS.volumes[sound.id]) && DEFAULT_SETTINGS.volumes[sound.id] > 0),
     'a sound layer would start silently or lose its volume on reload',

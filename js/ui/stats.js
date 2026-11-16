@@ -140,6 +140,7 @@ export class Stats {
               <span>${minutes} min</span>
               <span>·</span>
               <span style="color:${entry.completed ? 'var(--ok)' : 'var(--ink-4)'}">${entry.completed ? 'completed' : 'left early'}</span>
+              ${entry.recovered ? '<span>· logged while away</span>' : ''}
             </span>
           </div>`;
       })
