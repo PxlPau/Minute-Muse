@@ -462,9 +462,16 @@ await check('a live session resumes ticking after a reload and settles itself', 
   const result = fresh.recover();
   assert(result?.resumed, 'recover() did not report a live session');
   assert(fresh.isRunning, 'the resumed session is not ticking');
-  await new Promise((resolve) => setTimeout(resolve, 2600));
+  assert(fresh.interval, 'the resumed session never started its interval');
+
+  // The time-of-day suite pins Date, so a wall-clock wait cannot prove that a
+  // resumed phase settles. Move the stored deadline into the past and drive
+  // the same drift path the visibility handler uses instead.
+  timerSignal.set({ ...timerSignal.value, endsAt: new Date(Date.now() - 1000).toISOString() });
+  fresh.checkDrift();
   const after = JSON.parse(window.localStorage.getItem('mm.history')).length;
   assert(after === before + 1, 'a resumed session never settled itself when it ended');
+  assert(timerSignal.value.phase === 'short', `expected a break after the round, got ${timerSignal.value.phase}`);
   fresh.reset();
 });
 
