@@ -7,11 +7,11 @@
 import { $, $$, debounce, escapeHtml, toast } from '../util.js';
 import { passages } from '../quotes.js';
 
-const FILTER_LABELS = {
-  all: 'Everything',
-  time: 'This hour',
-  now: 'This minute',
-  author: 'By author',
+const FILTER_HINTS = {
+  all: 'Select a passage to read it in the clock.',
+  time: 'Showing passages from this hour.',
+  now: 'Showing passages for the current minute.',
+  author: 'Type an author’s name to browse their passages.',
 };
 
 export class Library {
@@ -36,7 +36,7 @@ export class Library {
     this.input?.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        this.search.flush();
+        this.search.flush(true);
         this.results?.querySelector('button.result')?.click();
       }
       if (event.key === 'ArrowDown') {
@@ -53,11 +53,8 @@ export class Library {
         button.classList.toggle('is-active', button === chip);
         button.setAttribute('aria-pressed', String(button === chip));
       });
-      if (this.filter === 'author') {
-        this.hint.textContent = 'Type an author’s name to browse their passages.';
-        if (!this.input.value) this.input.focus();
-        return;
-      }
+      if (this.hint) this.hint.textContent = FILTER_HINTS[this.filter] || FILTER_HINTS.all;
+      if (this.filter === 'author' && !this.input?.value) this.input?.focus();
       this.run();
     });
 
@@ -84,9 +81,7 @@ export class Library {
     if (this.count) {
       this.count.textContent = total ? `${total.toLocaleString()} found` : '';
     }
-    this.empty?.setAttribute('hidden', total ? 'true' : 'false');
-    if (total === 0) this.empty.hidden = false;
-    else if (this.empty) this.empty.hidden = true;
+    if (this.empty) this.empty.hidden = total > 0;
 
     this.results.innerHTML = results
       .map(
@@ -96,7 +91,7 @@ export class Library {
           data-author="${escapeAttr(entry.author)}"
           data-title="${escapeAttr(entry.title)}"
           data-timecase="${escapeAttr(entry.timeCase)}"
-          data-key="${entry.key}">
+          data-key="${escapeAttr(entry.key)}">
           <span class="result__quote">“${escapeHtml(entry.quote)}”</span>
           <span class="result__meta">
             <span class="time-tag">${entry.key}</span>
@@ -127,8 +122,8 @@ export class Library {
   }
 
   focusQuery(prefix = '') {
-    this.input.value = prefix;
-    this.search.flush();
+    if (this.input) this.input.value = prefix;
+    this.search.flush(true);
   }
 }
 

@@ -45,6 +45,7 @@ export class Reader {
     this.elWork = $('#work');
     this.elSave = $('#btn-save-quote');
     this.elPreview = $('#preview-flag');
+    this.elNextTime = $('#next-time');
     this.elContext = $('#reader-context');
     this.elEyebrow = $('#reader-eyebrow-text');
     this.onBookmarkChange = onBookmarkChange;
@@ -54,6 +55,9 @@ export class Reader {
     this.current = null; // { ...passage, key }
     this.previewOffset = 0; // minutes away from now, 0 = live
     this.seenIndex = -1; // position in the current minute's list, -1 = not yet stepped
+    this.stayOnPassage = false;
+    this.pendingMinuteKey = null; // live minute changed while auto-turn was off
+    this.turnLabelAction = null;
     this.swapTimer = null;
   }
 
@@ -67,13 +71,23 @@ export class Reader {
     $('#btn-prev-minute')?.addEventListener('click', () => this.shiftMinute(-1));
     $('#btn-next-minute')?.addEventListener('click', () => this.shiftMinute(1));
     this.elPreview?.addEventListener('click', () => this.returnToNow());
+    this.elNextTime?.addEventListener('click', () => this.activateTurnLabel());
+    this.elNextTime?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        this.activateTurnLabel();
+      }
+    });
   }
 
   /** Show a specific passage (from search or the journal) without moving the clock. */
   previewPassage(passage) {
     if (!passage) return;
+    this.releasePin();
     this.previewOffset = 0;
-    const minutes = passage.key ? passage.key.split(':').map(Number) : null;
+    const minutes = /^([01]\d|2[0-3]):[0-5]\d$/.test(String(passage.key || ''))
+      ? String(passage.key).split(':').map(Number)
+      : null;
     if (minutes) {
       const now = new Date();
       const current = now.getHours() * 60 + now.getMinutes();
@@ -94,31 +108,68 @@ export class Reader {
     this.updatePreviewFlag();
   }
 
+  /** The live minute moved on, but automatic page turns are switched off. */
+  pendingMinute(date = new Date()) {
+    this.pendingMinuteKey = passages.keyFor(date);
+    this.updatePreviewFlag();
+  }
+
+  /**
+   * The next-time label doubles as a quiet "turn the page" control when the
+   * reader is holding a passage, previewing a minute, or has a minute pending.
+   * It is keyboard reachable only while it actually does something.
+   */
   setTurnLabel() {
     const label = this.elNextTime;
     if (!label) return;
-    if (this.stayOnPassage) {
-      label.textContent = 'Staying on this page';
+    const previewing = this.previewOffset !== 0;
+    const pending = Boolean(this.pendingMinuteKey);
+    const held = previewing || pending || this.stayOnPassage;
+    const wasActionable = label.dataset.turnLabel === 'true';
+
+    if (held) {
+      label.textContent = previewing
+        ? 'Preview held · back to now'
+        : pending
+          ? 'A new minute is ready · turn the page'
+          : 'Staying on this page · turn the page';
+      label.dataset.turnLabel = 'true';
+      label.setAttribute('role', 'button');
+      label.setAttribute('tabindex', '0');
+      label.title = previewing ? 'Return to the current minute' : 'Show the current minute’s passage';
       label.style.cursor = 'pointer';
-      label.title = 'Turn to the current minute';
-      label.onclick = () => {
-        this.releasePin();
-        this.renderNow({ animate: true });
-      };
+      this.turnLabelAction = previewing ? 'now' : 'minute';
     } else {
+      delete label.dataset.turnLabel;
+      label.removeAttribute('role');
+      label.removeAttribute('tabindex');
+      label.removeAttribute('title');
       label.style.cursor = '';
-      label.title = '';
-      label.onclick = null;
+      this.turnLabelAction = null;
+      if (wasActionable) label.textContent = 'Next passage in 60s';
+    }
+  }
+
+  activateTurnLabel() {
+    if (this.turnLabelAction === 'now') {
+      this.returnToNow();
+    } else if (this.turnLabelAction === 'minute') {
+      this.pendingMinuteKey = null;
+      this.releasePin();
+      this.renderNow({ animate: true });
     }
   }
 
   releasePin() {
     this.stayOnPassage = false;
+    this.pendingMinuteKey = null;
   }
 
   /** Show the passage for the live minute (unless previewing). */
   renderNow({ animate = true } = {}) {
     if (this.previewOffset !== 0) return;
+    this.pendingMinuteKey = null;
+    this.updatePreviewFlag();
     this.show(this.pickFor(new Date()), { animate });
   }
 
@@ -129,7 +180,7 @@ export class Reader {
       this.updatePreviewFlag();
       return;
     }
-    if (!this.stayOnPassage) this.renderNow({ animate: true });
+    if (!this.stayOnPassage && !this.pendingMinuteKey) this.renderNow({ animate: true });
     else this.updatePreviewFlag();
   }
 
@@ -144,11 +195,18 @@ export class Reader {
   }
 
   show(passage, { animate = true, stepped = false } = {}) {
+    clearTimeout(this.swapTimer);
+    this.swapTimer = null;
     if (!passage) {
       this.setLoading(false);
+      this.current = null;
+      this.seenIndex = -1;
+      this.pendingMinuteKey = null;
       this.elQuote.innerHTML = 'The collection could not be reached. Your focus tools still work.';
       this.elAuthor.textContent = '';
       this.elWork.textContent = '';
+      this.syncSaveState();
+      this.updatePreviewFlag();
       return;
     }
 
@@ -165,11 +223,11 @@ export class Reader {
     const swap = () => {
       this.elQuote.innerHTML = `“${html}”`;
       // Very long passages ease down a touch so the card keeps its shape.
-      this.root.classList.toggle('is-dense', plain.length > 320);
+      this.root?.classList.toggle('is-dense', plain.length > 320);
       this.elAuthor.textContent = passage.author;
       this.elWork.textContent = passage.title || '';
       this.elWork.hidden = !passage.title;
-      this.root.classList.remove('is-swapping');
+      this.root?.classList.remove('is-swapping');
       this.syncSaveState();
       this.updatePreviewFlag();
       this.onTurn(passage);
@@ -182,8 +240,7 @@ export class Reader {
     }
 
     this.setLoading(false);
-    this.root.classList.add('is-swapping');
-    clearTimeout(this.swapTimer);
+    this.root?.classList.add('is-swapping');
     this.swapTimer = setTimeout(swap, 260);
   }
 
@@ -200,6 +257,15 @@ export class Reader {
  * it was already showing — the same sentence, twice in a row.
  */
   advance() {
+    // A pending live minute takes priority over stepping through the old one.
+    if (this.pendingMinuteKey) {
+      this.pendingMinuteKey = null;
+      this.releasePin();
+      this.previewOffset = 0;
+      this.show(this.pickFor(new Date(), { avoid: this.current?.quote }), { animate: true });
+      this.updatePreviewFlag();
+      return;
+    }
     this.releasePin();
     const key = this.current?.key || passages.keyFor();
     const pool = passages.candidates(key);
@@ -250,6 +316,7 @@ export class Reader {
   }
 
   shiftMinute(delta) {
+    this.releasePin();
     this.previewOffset = Math.max(-180, Math.min(180, this.previewOffset + delta));
     const target = new Date(Date.now() + this.previewOffset * 60_000);
     const passage = this.pickFor(target, { avoid: null });

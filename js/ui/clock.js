@@ -26,14 +26,20 @@ export class Clock {
     this.lastPeriod = periodOf();
     this.interval = null;
     this.second = null;
+    this.visibilityBound = false;
   }
 
   start() {
-    this.render();
+    this.sync();
+    if (this.interval) window.clearInterval(this.interval);
     this.interval = window.setInterval(() => this.loop(), 1000);
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) this.render();
-    });
+    // Bind once: start() may be called again by tests or a hot reload.
+    if (!this.visibilityBound) {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) this.sync();
+      });
+      this.visibilityBound = true;
+    }
   }
 
   stop() {
@@ -43,24 +49,31 @@ export class Clock {
 
   loop() {
     const now = new Date();
-    this.render();
-    if (now.getSeconds() === 0) {
-      const key = minuteKey(now);
-      if (key !== this.lastMinute) {
-        this.lastMinute = key;
-        this.onMinute(now);
-      }
-      const period = periodOf(now);
-      if (period !== this.lastPeriod) {
-        this.lastPeriod = period;
-        this.onTick({ periodChanged: true });
-      }
-    }
+    this.sync(now);
     this.onTick({ second: now.getSeconds() });
   }
 
-  render() {
-    const now = new Date();
+  /**
+   * Render and settle transitions in one place. Background tabs are throttled
+   * and may skip the tick at second zero entirely, so transitions are detected
+   * on *every* tick and when the page becomes visible again — not by hoping a
+   * timer fires at exactly `getSeconds() === 0`.
+   */
+  sync(now = new Date()) {
+    this.render(now);
+    const key = minuteKey(now);
+    if (key !== this.lastMinute) {
+      this.lastMinute = key;
+      this.onMinute(now);
+    }
+    const period = periodOf(now);
+    if (period !== this.lastPeriod) {
+      this.lastPeriod = period;
+      this.onTick({ periodChanged: true });
+    }
+  }
+
+  render(now = new Date()) {
     const { time, suffix } = formatClock(now, settings.value.hour24);
     if (this.elTime) this.elTime.textContent = time;
     if (this.elAmPm) this.elAmPm.textContent = suffix;
@@ -71,7 +84,8 @@ export class Clock {
     if (this.elDate) this.elDate.textContent = formatLongDate(now);
 
     const remaining = 60 - now.getSeconds();
-    if (this.elNextTime) {
+    // The reader owns this label while a page is held or a preview is active.
+    if (this.elNextTime && this.elNextTime.dataset.turnLabel !== 'true') {
       this.elNextTime.textContent =
         remaining === 60 ? 'Turning the page…' : `Next passage in ${remaining}s`;
     }

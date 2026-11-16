@@ -4,7 +4,7 @@
    forwards user intent (start/pause/skip/reset, presets, immersive toggle).
    ========================================================================== */
 
-import { $, $$, formatDuration, formatSpan, toast } from '../util.js';
+import { $, $$, escapeHtml, formatDuration, formatSpan, toast } from '../util.js';
 import { settings, patchSettings, focusSecondsToday, timerState } from '../store.js';
 import { PHASES } from '../timer.js';
 
@@ -54,6 +54,8 @@ export class TimerPanel {
 
     this.immersiveOpen = false;
     this.lastSnapshot = null;
+    this.hideTimer = null;
+    this.immersiveFocus = null;
   }
 
   init() {
@@ -125,7 +127,7 @@ export class TimerPanel {
     });
   }
 
-  async handleReset() {
+  handleReset() {
     const snapshot = this.engine.snapshot();
     if (snapshot.status === 'idle') return;
     this.engine.reset();
@@ -235,23 +237,38 @@ export class TimerPanel {
   /* ------------------------------------------------------------- immersive */
   setImmersive(open) {
     if (!this.immersive) return;
-    const unchanged = open === this.immersiveOpen;
-    // Keep the body class truthful even when the call is a no-op (e.g. opening
-    // on load with a session already running).
-    document.body.classList.toggle('immersive', open);
-    if (unchanged) return;
+    // A close animation must never hide a view that has just been reopened.
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer);
+      this.hideTimer = null;
+    }
+    const changed = open !== this.immersiveOpen;
     this.immersiveOpen = open;
+    document.body.classList.toggle('immersive', open);
+
     if (open) {
+      if (changed) this.immersiveFocus = document.activeElement;
       this.immersive.hidden = false;
-      requestAnimationFrame(() => requestAnimationFrame(() => this.immersive.classList.remove('is-closing')));
-      const closeBtn = this.elFocusExit;
-      closeBtn?.focus({ preventScroll: true });
-    } else {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (this.immersiveOpen) this.immersive.classList.remove('is-closing');
+      }));
+      this.elFocusExit?.focus?.({ preventScroll: true });
+    } else if (!this.immersive.hidden) {
       this.immersive.classList.add('is-closing');
-      setTimeout(() => {
+      this.hideTimer = setTimeout(() => {
+        this.hideTimer = null;
+        if (this.immersiveOpen) return;
         this.immersive.hidden = true;
         this.immersive.classList.remove('is-closing');
       }, 300);
+      if (changed && this.immersiveFocus && document.contains(this.immersiveFocus)) {
+        this.immersiveFocus.focus?.({ preventScroll: true });
+      }
+    }
+
+    if (!changed) {
+      if (this.lastSnapshot) this.renderImmersive(this.lastSnapshot);
+      return;
     }
     this.onImmersiveChange(open);
     if (this.lastSnapshot) this.renderImmersive(this.lastSnapshot);
@@ -281,7 +298,7 @@ export class TimerPanel {
       const active = this.getActiveTask?.();
       const intention = active?.text || snapshot.intent;
       this.elFocusIntent.innerHTML = intention
-        ? `This session is for <strong>${escape(intention)}</strong>.`
+        ? `This session is for <strong>${escapeHtml(intention)}</strong>.`
         : 'One thing, one page, one breath at a time.';
     }
   }
@@ -299,8 +316,4 @@ export class TimerPanel {
       document.title = 'Minute Muse — A Literary Focus Workspace';
     }
   }
-}
-
-function escape(value = '') {
-  return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

@@ -506,6 +506,252 @@ await check('focus record only counts focus phases', () => {
   assert(history.every((entry) => entry.phase === 'focus' || entry.focusSec === 0), 'break logged as focus time');
 });
 
+await check('every ambience layer has a persisted default volume', async () => {
+  const { SOUND_LIST } = await import(new URL('js/audio.js', projectRootUrl).href);
+  const { DEFAULT_SETTINGS, patchSettings } = await import(new URL('js/store.js', projectRootUrl).href);
+  assert(SOUND_LIST.length === 7, 'unexpected sound list size');
+  assert(
+    SOUND_LIST.every((sound) => Number.isFinite(DEFAULT_SETTINGS.volumes[sound.id]) && DEFAULT_SETTINGS.volumes[sound.id] > 0),
+    'a sound layer would start silently or lose its volume on reload',
+  );
+  const jazz = DEFAULT_SETTINGS.volumes.jazz;
+  patchSettings({ volumes: { ...api.state.settings.value.volumes, jazz: jazz + 0.1 } });
+  assert(Math.abs(api.state.settings.value.volumes.jazz - (jazz + 0.1)) < 1e-9, 'a layer volume was dropped by settings normalisation');
+  patchSettings({ volumes: { ...api.state.settings.value.volumes, jazz } });
+});
+
+await check('a held page offers a working turn-to-now control', () => withClockStopped(async () => {
+  const { patchSettings } = await import(new URL('js/store.js', projectRootUrl).href);
+  const reader = api.reader;
+  const label = $('#next-time');
+  reader.previewOffset = 0;
+  reader.releasePin();
+  reader.renderNow({ animate: false });
+  patchSettings({ autoTurn: false });
+  api.clock.onMinute(new Date(Date.now() + 60_000));
+  assert(reader.stayOnPassage && reader.pendingMinuteKey, 'the pending minute was not recorded');
+  assert(label.dataset.turnLabel === 'true' && /new minute/i.test(label.textContent), 'the held-page label is missing');
+  assert(label.getAttribute('role') === 'button' && label.tabIndex === 0, 'the held-page control is not keyboard reachable');
+  api.clock.render();
+  assert(/new minute/i.test(label.textContent), 'the clock overwrote the held-page label');
+  label.click();
+  assert(!reader.pendingMinuteKey && !reader.stayOnPassage, 'turning the page did not clear the hold');
+  patchSettings({ autoTurn: true });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  reader.renderNow({ animate: false });
+  assert(label.dataset.turnLabel !== 'true', 'the turn label stayed actionable');
+}));
+
+await check('clock catches a minute change at any second', () => withClockStopped(async () => {
+  const { minuteKey, periodOf } = await import(new URL('js/util.js', projectRootUrl).href);
+  const { clock } = api;
+  const RealDate = globalThis.Date;
+  class ThrottledDate extends RealDate {
+    constructor(...args) {
+      super(...(args.length ? args : [2026, 10, 16, 10, 30, 37]));
+    }
+    static now() { return new RealDate(2026, 10, 16, 10, 30, 37).getTime(); }
+  }
+  const originalOnMinute = clock.onMinute;
+  let calls = 0;
+  globalThis.Date = ThrottledDate;
+  clock.onMinute = () => { calls += 1; };
+  clock.lastMinute = '10:29';
+  clock.lastPeriod = periodOf(new ThrottledDate());
+  try {
+    clock.loop();
+  } finally {
+    globalThis.Date = RealDate;
+    clock.onMinute = originalOnMinute;
+    clock.lastMinute = minuteKey(new RealDate());
+    clock.lastPeriod = periodOf(new RealDate());
+  }
+  assert(calls === 1, 'a throttled tick did not report the minute change exactly once');
+}));
+
+await check('Escape closes one surface at a time', async () => {
+  const body = window.document.body;
+  const overlay = $('#library-overlay');
+  body.classList.add('zen');
+  api.library.open();
+  $('#library-search').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert(!api.overlays.isOpen(overlay), 'the overlay remained open');
+  assert(body.classList.contains('zen'), 'one Escape also left Zen mode');
+  body.classList.remove('zen');
+  await new Promise((resolve) => setTimeout(resolve, 240));
+});
+
+await check('confirmation dialogs block global shortcuts', async () => {
+  const { confirmDialog } = await import(new URL('js/util.js', projectRootUrl).href);
+  const body = window.document.body;
+  body.classList.remove('zen');
+  const pending = confirmDialog({ title: 'Regression check', message: 'Keep shortcuts modal.' });
+  body.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'z', bubbles: true }));
+  assert(!body.classList.contains('zen'), 'a shortcut fired behind the confirmation');
+  $('[data-cancel]')?.click();
+  await pending;
+  await new Promise((resolve) => setTimeout(resolve, 220));
+});
+
+await check('immersive view survives a quick close and reopen', async () => {
+  const view = $('#focus-view');
+  api.timerPanel.setImmersive(true);
+  api.timerPanel.setImmersive(false);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  api.timerPanel.setImmersive(true);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  assert(!view.hidden && api.timerPanel.immersiveOpen, 'a stale close timer hid the reopened view');
+  api.timerPanel.setImmersive(false);
+  await new Promise((resolve) => setTimeout(resolve, 320));
+});
+
+await check('reopening an overlay cancels its close animation', async () => {
+  const overlay = $('#credits-overlay');
+  api.overlays.open(overlay);
+  api.overlays.close(overlay);
+  api.overlays.open(overlay);
+  await new Promise((resolve) => setTimeout(resolve, 260));
+  assert(!overlay.hidden && api.overlays.isOpen(overlay), 'a stale close timer hid the reopened overlay');
+  api.overlays.close(overlay, { immediate: true });
+});
+
+await check('the author filter only matches authors', () => {
+  const broad = api.passages.search('lighthouse', { filter: 'all' });
+  const authors = api.passages.search('lighthouse', { filter: 'author' });
+  assert(broad.total > 0, 'the test query is not present in the collection');
+  assert(
+    authors.results.every((entry) => entry.author.toLowerCase().includes('lighthouse')),
+    'the author filter returned a quote or title match',
+  );
+});
+
+await check('an idle debounce flush does not autosave', async () => {
+  const { debounce } = await import(new URL('js/util.js', projectRootUrl).href);
+  let calls = 0;
+  const debounced = debounce(() => { calls += 1; }, 1000);
+  debounced.flush();
+  assert(calls === 0, 'closing an untouched journal would overwrite its note');
+  debounced();
+  debounced.flush();
+  assert(calls === 1, 'a pending debounce was not flushed');
+});
+
+await check('backdrop rejects unsafe image metadata', async () => {
+  const { Atmosphere } = await import(new URL('js/ui/backdrop.js', projectRootUrl).href);
+  const atmosphere = new Atmosphere();
+  atmosphere.apply({
+    url: 'javascript:alert(1)',
+    name: '<img src=x onerror=alert(1)>',
+    link: 'javascript:alert(1)',
+  });
+  const credit = $('#photo-credit');
+  assert(!credit.querySelector('a[href^="javascript:"]'), 'an unsafe profile link was rendered');
+  assert(!credit.querySelector('img'), 'a photographer name was rendered as markup');
+  assert(!/javascript:/i.test($('#backdrop-b').style.backgroundImage), 'an unsafe CSS URL was applied');
+  atmosphere.clear();
+});
+
+await check('saved passages escape untrusted backup fields', async () => {
+  const { bookmarks } = await import(new URL('js/store.js', projectRootUrl).href);
+  const before = bookmarks.value;
+  bookmarks.set([{
+    id: '"><img src=x onerror=alert(1)>',
+    quote: 'A safe passage',
+    author: 'Author',
+    title: '',
+    minute: '<img src=x onerror=alert(1)>',
+    savedAt: 12345,
+  }]);
+  api.journal.renderSaved();
+  assert(!$('#saved-list img'), 'saved-passage metadata reached the DOM as HTML');
+  bookmarks.set(before);
+});
+
+await check('corrupt timer storage is repaired', async () => {
+  const { timerState, clearTimerState } = await import(new URL('js/store.js', projectRootUrl).href);
+  const { SessionEngine } = await import(new URL('js/timer.js', projectRootUrl).href);
+  api.engine.reset();
+  window.localStorage.setItem('mm.timer', '"not an object"');
+  timerState.reload();
+  assert(
+    timerState.value && typeof timerState.value === 'object' && timerState.value.status === 'idle',
+    'timer state was left as raw corrupt storage',
+  );
+  assert(new SessionEngine().snapshot().status === 'idle', 'the engine could not read the repaired timer');
+  clearTimerState();
+});
+
+await check('backups are identified and their values sanitised', async () => {
+  const { importData, tasks: taskSignal } = await import(new URL('js/store.js', projectRootUrl).href);
+  let threw = false;
+  try {
+    importData({ app: 'another-app', data: {} });
+  } catch {
+    threw = true;
+  }
+  assert(threw, 'a foreign data object was accepted as a backup');
+  const before = taskSignal.value;
+  importData({
+    app: 'minute-muse',
+    version: 2,
+    data: {
+      tasks: [{
+        id: '"><img src=x onerror=alert(1)>',
+        text: '<img src=x onerror=alert(1)>',
+        done: false,
+        createdAt: 'not-a-date',
+        doneAt: null,
+      }],
+    },
+  });
+  api.tasks.render();
+  assert(!$('#task-list img'), 'an imported task id or text reached the DOM as HTML');
+  taskSignal.set(before);
+  api.tasks.render();
+});
+
+await check('focus totals ignore malformed history numbers', async () => {
+  const { history: historySignal, focusSecondsToday } = await import(new URL('js/store.js', projectRootUrl).href);
+  const before = historySignal.value;
+  const now = new Date().toISOString();
+  historySignal.set([
+    { id: 'a', phase: 'focus', startedAt: now, endedAt: now, plannedSec: 60, focusSec: '60', completed: false, task: null, intent: null },
+    { id: 'b', phase: 'focus', startedAt: now, endedAt: now, plannedSec: 120, focusSec: 120, completed: true, task: null, intent: null },
+  ]);
+  assert(focusSecondsToday() === 180, `expected 180 seconds, got ${focusSecondsToday()}`);
+  historySignal.set(before);
+});
+
+await check('a running session keeps its planned duration', async () => {
+  const { settings, patchSettings } = await import(new URL('js/store.js', projectRootUrl).href);
+  const before = settings.value.focusMin;
+  api.engine.reset();
+  api.engine.begin({ phase: 'focus', round: 1 });
+  const planned = api.engine.snapshot().planned;
+  patchSettings({ focusMin: Math.min(180, before + 10) });
+  const after = api.engine.snapshot();
+  assert(after.planned === planned, 'editing Settings changed the duration of an active session');
+  assert(after.remaining === planned || after.remaining === planned - 1, 'the countdown jumped after a settings change');
+  api.engine.pause();
+  assert(api.engine.snapshot().planned === planned, 'pausing lost the frozen duration');
+  api.engine.reset();
+  patchSettings({ focusMin: before });
+});
+
+await check('scroll locks survive overlapping surfaces', async () => {
+  const { confirmDialog } = await import(new URL('js/util.js', projectRootUrl).href);
+  const body = window.document.body;
+  const overlay = $('#credits-overlay');
+  api.overlays.open(overlay);
+  const pending = confirmDialog({ title: 'Scroll lock', message: 'Overlapping surfaces.' });
+  api.overlays.close(overlay, { immediate: true });
+  assert(body.classList.contains('has-overlay'), 'closing an overlay unlocked a page with a confirmation open');
+  $('[data-cancel]')?.click();
+  await pending;
+  assert(!body.classList.contains('has-overlay'), 'the last confirmation did not unlock the page');
+  await new Promise((resolve) => setTimeout(resolve, 220));
+});
+
 await check('erasing data clears every store', async () => {
   const storeModule = await import(new URL('js/store.js', projectRootUrl).href);
   storeModule.resetAllData();

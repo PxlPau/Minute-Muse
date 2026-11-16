@@ -37,13 +37,26 @@ export class SoundPanel {
     // Restore the previous blend only after a real gesture, never on load —
     // and only when the last gesture was a deliberate choice, not a stray tap
     // that happened to lift an audio restriction.
-    const restore = async () => {
-      const last = settings.value.lastMix || [];
+    let restoring = false;
+    const detach = () => {
       window.removeEventListener('pointerdown', restore, true);
       window.removeEventListener('keydown', restore, true);
-      if (!last.length) return;
+    };
+    const restore = async () => {
+      if (restoring) return;
+      restoring = true;
+      const last = settings.value.lastMix || [];
+      if (!last.length) {
+        detach();
+        return;
+      }
       const allowed = await this.ambience.unlock();
-      if (!allowed) return;
+      if (!allowed) {
+        // The browser refused this gesture; keep listening for the next one.
+        restoring = false;
+        return;
+      }
+      detach();
       last.forEach((id) => this.ambience.start(id));
     };
     window.addEventListener('pointerdown', restore, true);
@@ -189,7 +202,10 @@ export class SoundPanel {
   }
 
   persistMix() {
-    patchSettings({ lastMix: this.ambience.playingIds, ambienceOn: this.ambience.playingIds.length > 0 });
+    patchSettings({
+      lastMix: this.ambience.playingIds,
+      ambienceOn: this.ambience.playingIds.length > 0 && !this.ambience.muted,
+    });
   }
 
   /** Keyboard: mute toggled via the engine's API from elsewhere. */

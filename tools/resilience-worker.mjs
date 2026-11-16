@@ -27,6 +27,7 @@ const storage = {
     'mm.notes': 'null',
   },
   'corrupt-bookmarks': { 'mm.bookmarks': '{"broken":true}' },
+  'quotes-malformed': {},
 }[scenario];
 
 if (!storage) {
@@ -35,7 +36,15 @@ if (!storage) {
 }
 for (const [key, value] of Object.entries(storage)) window.localStorage.setItem(key, value);
 
-if (scenario === 'quotes-offline' || scenario === 'images-offline') {
+if (['quotes-offline', 'images-offline', 'quotes-malformed'].includes(scenario)) {
+  const malformedQuotes = {
+    '10:30': [
+      { quote: 'A passage with a number for an author', author: 42, title: null, time_case: 7 },
+      { quote: 123, author: null, title: {}, time_case: [] },
+      { quote: 'A safe passage <img src=x onerror=alert(1)>', author: '<b>Author</b>', title: 'A & B', time_case: 'half past ten' },
+    ],
+    '99:99': [{ quote: 'An invalid minute key', author: 'Nobody', title: '', time_case: '' }],
+  };
   const original = globalThis.fetch;
   const patched = (input, init) => {
     const target = String(input);
@@ -44,6 +53,9 @@ if (scenario === 'quotes-offline' || scenario === 'images-offline') {
     }
     if (scenario === 'images-offline' && target.includes('images.json')) {
       return Promise.resolve({ ok: false, status: 503, json: async () => ({}) });
+    }
+    if (scenario === 'quotes-malformed' && target.includes('quotes.json')) {
+      return Promise.resolve({ ok: true, status: 200, json: async () => malformedQuotes });
     }
     return original(input, init);
   };
@@ -88,6 +100,31 @@ try {
     app.engine.recover();
     assert(app.engine.snapshot(), 'engine could not produce a snapshot');
     console.log('settings, tasks and timer repaired to safe defaults');
+  }
+
+  if (scenario === 'quotes-malformed') {
+    const { passages, QUOTE_STATE } = await import(new URL('js/quotes.js', projectRootUrl).href);
+    const valid = passages.db['10:30'];
+    assert(valid?.length === 2, 'bad quote keys or non-string passages were not filtered');
+    assert(
+      valid.every((entry) => ['quote', 'author', 'title', 'timeCase'].every((key) => typeof entry[key] === 'string')),
+      'a non-string quote field survived normalisation',
+    );
+    assert(!passages.db['99:99'], 'an invalid minute key was accepted');
+
+    // A later load failure must settle waiters instead of hanging forever.
+    passages.state = QUOTE_STATE.loading;
+    const pending = passages.whenReady();
+    const failingFetch = () => Promise.reject(new Error('network down'));
+    globalThis.fetch = failingFetch;
+    window.fetch = failingFetch;
+    assert(await passages.load() === false, 'a failed load should report failure');
+    await Promise.race([
+      pending,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('whenReady() never settled')), 1000)),
+    ]);
+    assert(passages.state === QUOTE_STATE.error, 'the engine did not record the load error');
+    console.log('malformed quote fields sanitised; load failures settle waiters');
   }
 
   if (scenario === 'corrupt-bookmarks') {

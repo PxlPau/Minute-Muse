@@ -1,6 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
+// Test-only endpoint override; production always uses api.unsplash.com.
+const UNSPLASH_ENDPOINT = process.env.UNSPLASH_ENDPOINT || 'https://api.unsplash.com/photos/random';
+const REFRESH_DELAY_MS = Number(process.env.UNSPLASH_REFRESH_DELAY_MS ?? 1200);
 
 const SEASON_THEMES = {
   winter: [
@@ -82,9 +85,14 @@ function getCurrentSeasons() {
 
 
 async function runUnsplashSearch(query, count) {
-  const url = `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&content_filter=high&count=${count}&client_id=${UNSPLASH_KEY}`;
+  const url = new URL(UNSPLASH_ENDPOINT);
+  url.searchParams.set('query', query);
+  url.searchParams.set('orientation', 'landscape');
+  url.searchParams.set('content_filter', 'high');
+  url.searchParams.set('count', String(count));
+  url.searchParams.set('client_id', UNSPLASH_KEY);
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(url.href, { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       console.error(`      Unsplash responded with HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ''}.`);
       return null;
@@ -94,11 +102,16 @@ async function runUnsplashSearch(query, count) {
       console.error('      Unsplash returned an unexpected response; expected a list of photos.');
       return null;
     }
-    return data.map((img) => ({
-      url: img.urls.regular,
-      name: img.user.name,
-      link: img.user.links.html,
-    }));
+    return data
+      .map((img) => ({
+        url: img?.urls?.regular,
+        name: img?.user?.name,
+        link: img?.user?.links?.html,
+      }))
+      .filter((img) =>
+        typeof img.url === 'string' && /^https:\/\//i.test(img.url) &&
+        typeof img.name === 'string' && img.name.trim() &&
+        typeof img.link === 'string' && /^https:\/\//i.test(img.link));
   } catch (error) {
     console.error(`      Unsplash request failed: ${error.message}`);
     return null;
@@ -149,8 +162,9 @@ function loadExisting() {
 
 async function main() {
   if (!UNSPLASH_KEY) {
-    console.error('❌ UNSPLASH_ACCESS_KEY is not set. Nothing to do; images.json left untouched.');
-    process.exitCode = 1;
+    // The scheduled workflow may legitimately run without a secret. Keep the
+    // last known good set and succeed instead of producing a red build.
+    console.warn('⚠️ UNSPLASH_ACCESS_KEY is not set. Nothing to do; images.json left untouched.');
     return;
   }
 
@@ -171,7 +185,7 @@ async function main() {
   for (const cat of CATEGORIES) {
     console.log(`\n📸 ${cat.id.toUpperCase()} (${cat.vibe})`);
     for (const period of Object.keys(PERIOD_THEMES)) {
-      await new Promise((r) => setTimeout(r, 1200));
+      if (REFRESH_DELAY_MS > 0) await new Promise((r) => setTimeout(r, REFRESH_DELAY_MS));
       const images = await fetchImages(cat.vibe, period, 4);
 
       if (images && images.length) {
@@ -194,8 +208,9 @@ async function main() {
   }
 
   if (fetched === 0) {
-    console.error('\n❌ Unsplash returned nothing; images.json left untouched.');
-    process.exitCode = 1;
+    // The last known good set is already in images.json. An API outage is not
+    // a code failure, so leave the file untouched and let the next run retry.
+    console.warn('\n⚠️ Unsplash returned nothing; images.json left untouched. Keeping the previous set.');
     return;
   }
 

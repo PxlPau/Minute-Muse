@@ -34,11 +34,23 @@ const TYPES = {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    let pathname = decodeURIComponent(url.pathname);
+    const url = new URL(req.url, 'http://localhost');
+    let pathname;
+    try {
+      pathname = decodeURIComponent(url.pathname);
+    } catch {
+      res.writeHead(400).end('Bad request');
+      return;
+    }
+    if (pathname.split('/').some((part) => part.startsWith('.') && part !== '.' && part !== '..')) {
+      res.writeHead(403).end('Forbidden');
+      return;
+    }
     if (pathname.endsWith('/')) pathname += 'index.html';
-    const filePath = path.join(root, pathname);
-    if (!filePath.startsWith(root)) {
+    const filePath = path.resolve(root, `.${pathname}`);
+    // A sibling such as /home/user/Minute-Muse-backup also passes a naive
+    // `startsWith(root)` check; insist on a path-boundary match.
+    if (filePath !== root && !filePath.startsWith(root + path.sep)) {
       res.writeHead(403).end('Forbidden');
       return;
     }

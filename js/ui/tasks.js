@@ -26,9 +26,9 @@ export class TaskPanel {
   init() {
     this.form?.addEventListener('submit', (event) => {
       event.preventDefault();
-      const task = addTask(this.input.value);
+      const task = addTask(this.input?.value || '');
       if (task) {
-        this.input.value = '';
+        if (this.input) this.input.value = '';
         this.render({ focusInput: true });
         this.onChange(tasks.value);
       }
@@ -68,7 +68,12 @@ export class TaskPanel {
     });
 
     this.list?.addEventListener('focusout', (event) => {
-      if (event.target.matches('.task__text') && this.editingId) {
+      const editingItem = event.target.closest?.('[data-task-id]');
+      if (
+        event.target.matches('.task__text') &&
+        this.editingId &&
+        editingItem?.dataset.taskId === this.editingId
+      ) {
         const id = this.editingId;
         this.editingId = null;
         renameTask(id, event.target.textContent);
@@ -77,7 +82,7 @@ export class TaskPanel {
       }
     });
 
-    this.clearDone?.addEventListener('click', async () => {
+    this.clearDone?.addEventListener('click', () => {
       if (!tasks.value.some((task) => task.done)) return;
       clearCompletedTasks();
       this.render();
@@ -116,10 +121,8 @@ export class TaskPanel {
     const doneCount = all.filter((task) => task.done).length;
 
     this.list.innerHTML = ordered
-      .map((task) => {
-        const editing = this.editingId === task.id;
-        return `
-          <li class="task${task.done ? ' task--done' : ''}" data-task-id="${task.id}">
+      .map((task) => `
+          <li class="task${task.done ? ' task--done' : ''}" data-task-id="${escapeHtml(task.id)}">
             <button class="task__toggle" type="button" aria-pressed="${task.done}" aria-label="${task.done ? 'Mark as not done' : 'Mark as done'}">
               <svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>
             </button>
@@ -127,8 +130,7 @@ export class TaskPanel {
             <button class="task__delete" type="button" aria-label="Delete task">
               <svg class="icon icon--sm" aria-hidden="true"><use href="#i-x"></use></svg>
             </button>
-          </li>`;
-      })
+          </li>`)
       .join('');
 
     if (this.empty) this.empty.hidden = all.length > 0;

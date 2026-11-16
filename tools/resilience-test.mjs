@@ -11,7 +11,13 @@ import { fileURLToPath } from 'node:url';
 
 const WORKER = new URL('resilience-worker.mjs', import.meta.url);
 
-const SCENARIOS = ['quotes-offline', 'images-offline', 'corrupt-storage', 'corrupt-bookmarks'];
+const SCENARIOS = [
+  'quotes-offline',
+  'images-offline',
+  'corrupt-storage',
+  'corrupt-bookmarks',
+  'quotes-malformed',
+];
 
 function run(scenario) {
   return new Promise((resolve) => {

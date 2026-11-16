@@ -135,11 +135,15 @@ async function boot() {
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) return;
-  window.addEventListener('load', () => {
+  const register = () => {
     navigator.serviceWorker.register('sw.js').catch(() => {
       /* Offline support is a bonus, never a requirement. */
     });
-  });
+  };
+  // DOMContentLoaded normally precedes load, but boot can be delayed (or the
+  // app can be re-initialised) after load has already fired.
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -219,8 +223,7 @@ function handleMinute(date) {
     // "Turn the page every minute" is off: keep the passage, but let the reader
     // ask for the next one when they're ready.
     app.reader.pinCurrent();
-    app.reader.updatePreviewFlag();
-    if (app.reader.pendingMinute) app.reader.pendingMinute();
+    app.reader.pendingMinute(date);
   } else {
     app.reader.releasePin();
     app.reader.onMinute(date);
@@ -277,13 +280,30 @@ function wireEvents() {
   });
 
   /* Settings that affect the clock need an immediate repaint. */
-  settings.subscribe(() => {
+  let lastAutoTurn = settings.value.autoTurn;
+  settings.subscribe((next) => {
     applyAppearance();
     hydrateClimateLabel();
+    if (next.autoTurn !== lastAutoTurn) {
+      if (next.autoTurn) {
+        app.reader.releasePin();
+        app.reader.renderNow({ animate: true });
+      } else {
+        app.reader.pinCurrent();
+      }
+      lastAutoTurn = next.autoTurn;
+    }
+    app.reader.updatePreviewFlag();
+    app.clock.render();
     app.timerPanel.render(app.engine.snapshot());
   });
 
   window.addEventListener('mm:settings', () => app.timerPanel.render(app.engine.snapshot()));
+
+  window.addEventListener('mm:data-erased', () => {
+    // Erasing data settles any running phase and stops the engine's interval.
+    app.engine.reset();
+  });
 
   window.addEventListener('mm:data-restored', () => {
     app.tasks.render();
@@ -343,6 +363,9 @@ function isTypingTarget(target) {
 
 function wireKeyboard() {
   document.addEventListener('keydown', (event) => {
+    // The overlay manager has already handled this key; don't close a second
+    // surface (Zen, immersive, preview) with the same Escape press.
+    if (event.defaultPrevented) return;
     const typing = isTypingTarget(event.target);
     const modifier = event.metaKey || event.ctrlKey || event.altKey;
 
@@ -411,9 +434,11 @@ function wireKeyboard() {
         app.sounds.toggleMute();
         break;
       case 'arrowleft':
+        event.preventDefault();
         if (!overlays.top) app.reader.shiftMinute(-1);
         break;
       case 'arrowright':
+        event.preventDefault();
         if (!overlays.top) app.reader.shiftMinute(1);
         break;
       default:

@@ -15,8 +15,11 @@ export const prefersReducedMotion = () =>
 
 /** Inline SVG icon that references the sprite shipped in index.html. */
 export function icon(name, extraClass = '') {
-  const cls = `icon${extraClass ? ` ${extraClass}` : ''}`;
-  return `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+  // Both values end up in an HTML attribute; keep generated icon markup inert.
+  const safeName = String(name).replace(/[^a-z0-9-]/gi, '');
+  const safeExtra = String(extraClass).replace(/[^a-z0-9\s_-]/gi, '');
+  const cls = `icon${safeExtra ? ` ${safeExtra}` : ''}`;
+  return `<svg class="${cls}" aria-hidden="true"><use href="#i-${safeName}"></use></svg>`;
 }
 
 export function escapeHtml(value = '') {
@@ -30,15 +33,32 @@ export function escapeHtml(value = '') {
 
 export function debounce(fn, wait = 200) {
   let timer = null;
+  let pending = false;
+  let lastArgs = [];
   const wrapped = (...args) => {
+    lastArgs = args;
+    pending = true;
     clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), wait);
+    timer = setTimeout(() => {
+      pending = false;
+      timer = null;
+      fn(...lastArgs);
+    }, wait);
   };
-  wrapped.flush = (...args) => {
+  // Flushing an idle debounce must be a no-op: journal close used to save an
+  // unchanged (or stale) note just because the drawer was dismissed.
+  wrapped.flush = (force = false) => {
+    if (!pending && !force) return;
     clearTimeout(timer);
-    fn(...args);
+    timer = null;
+    pending = false;
+    fn(...lastArgs);
   };
-  wrapped.cancel = () => clearTimeout(timer);
+  wrapped.cancel = () => {
+    clearTimeout(timer);
+    timer = null;
+    pending = false;
+  };
   return wrapped;
 }
 
@@ -85,7 +105,7 @@ export function countWords(text) {
 
 /** Split focus time into a headline value + unit for stat tiles. */
 export function formatStatMinutes(totalSeconds) {
-  const minutes = Math.round((Number(totalSeconds) || 0) / 60);
+  const minutes = Math.round(Math.max(0, Number(totalSeconds) || 0) / 60);
   if (minutes < 60) return { value: String(minutes), unit: 'min' };
   const hours = minutes / 60;
   const rounded = hours >= 10 ? Math.round(hours) : Math.round(hours * 10) / 10;
@@ -94,7 +114,7 @@ export function formatStatMinutes(totalSeconds) {
 
 /** Readable span such as "42m", "1h", "1h 15m" for labels and captions. */
 export function formatSpan(totalSeconds) {
-  const minutes = Math.round((Number(totalSeconds) || 0) / 60);
+  const minutes = Math.round(Math.max(0, Number(totalSeconds) || 0) / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
@@ -118,7 +138,9 @@ export function relativeDay(key) {
   yesterday.setDate(yesterday.getDate() - 1);
   if (key === dayKey(yesterday)) return 'Yesterday';
   const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return key || '';
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 export const PERIOD_LABELS = {
@@ -238,21 +260,20 @@ export const STORAGE_PREFIX = PREFIX;
  * A tiny persistent signal: holds a value, saves it, and notifies subscribers.
  * Also mirrors changes made in other tabs.
  */
-export function createSignal(storageKey, initialValue, { validate = null } = {}) {
+export function createSignal(storageKey, initialValue, { validate = null, normalise = null } = {}) {
   const listeners = new Set();
 
-  /** Read from storage, repairing anything the caller's validator rejects. */
-  const read = () => {
-    const raw = readStorage(storageKey, initialValue);
-    if (!validate) return raw;
+  /** Read from storage, repairing anything the validator or normaliser rejects. */
+  const fallback = () => structuredCloneSafe(initialValue);
+  const sanitise = (raw) => {
     try {
-      const ok = validate(raw);
-      if (ok) return raw;
+      if (validate && !validate(raw)) return fallback();
+      return normalise ? normalise(raw) : raw;
     } catch {
-      /* fall through to the default */
+      return fallback();
     }
-    return structuredCloneSafe(initialValue);
   };
+  const read = () => sanitise(readStorage(storageKey, initialValue));
 
   let value = read();
 
@@ -272,9 +293,10 @@ export function createSignal(storageKey, initialValue, { validate = null } = {})
       return value;
     },
     set(next, meta) {
-      notify(next, meta);
-      writeStorage(storageKey, next);
-      return next;
+      const safe = sanitise(next);
+      notify(safe, meta);
+      writeStorage(storageKey, safe);
+      return safe;
     },
     update(updater, meta) {
       return signal.set(updater(value), meta);
@@ -288,13 +310,14 @@ export function createSignal(storageKey, initialValue, { validate = null } = {})
     },
     clear() {
       removeStorage(storageKey);
-      notify(structuredCloneSafe(initialValue), { external: true });
+      notify(fallback(), { external: true });
     },
     storageKey: PREFIX + storageKey,
   };
 
   window.addEventListener('storage', (event) => {
-    if (event.key === PREFIX + storageKey) signal.reload();
+    // `key` is null when another tab clears localStorage entirely.
+    if (event.key === null || event.key === PREFIX + storageKey) signal.reload();
   });
 
   return signal;
@@ -313,6 +336,18 @@ function structuredCloneSafe(value) {
 /* -------------------------------------------------------------------------- */
 
 let toastHost = null;
+const scrollLocks = new Set();
+let dialogSerial = 0;
+
+/**
+ * Scroll locks are shared by managed overlays and standalone confirmations.
+ * A closing surface must not unlock the page while another one is still open.
+ */
+export function setScrollLock(owner, locked) {
+  if (locked) scrollLocks.add(owner);
+  else scrollLocks.delete(owner);
+  document.body.classList.toggle('has-overlay', scrollLocks.size > 0);
+}
 
 /**
  * Quiet, one-at-a-time toast with an optional action.
@@ -368,10 +403,13 @@ export function toast(message, options = {}) {
 /** Friendly confirm dialog built from the same chrome as other modals. */
 export function confirmDialog({ title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
   return new Promise((resolve) => {
+    const previouslyFocused = document.activeElement;
+    const dialogId = `mm-confirm-${++dialogSerial}`;
+    const lockKey = `confirm:${dialogId}`;
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
     overlay.innerHTML = `
-      <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" style="max-width:420px">
+      <div class="modal" role="alertdialog" aria-modal="true" style="max-width:420px">
         <div class="modal__head">
           <div><h2 id="confirm-title"></h2><p></p></div>
         </div>
@@ -381,42 +419,61 @@ export function confirmDialog({ title, message, confirmLabel = 'Confirm', cancel
           <button class="btn ${danger ? 'btn--danger' : 'btn--primary'}" type="button" data-confirm></button>
         </div>
       </div>`;
-    overlay.querySelector('h2').textContent = title;
+    const dialog = overlay.querySelector('[role="alertdialog"]');
+    const heading = overlay.querySelector('h2');
+    heading.id = dialogId;
+    dialog.setAttribute('aria-labelledby', dialogId);
+    heading.textContent = title;
     overlay.querySelector('.modal__head p').textContent = message;
     overlay.querySelector('[data-cancel]').textContent = cancelLabel;
     overlay.querySelector('[data-confirm]').textContent = confirmLabel;
     document.body.appendChild(overlay);
+    setScrollLock(lockKey, true);
 
-    const previouslyFocused = document.activeElement;
     const confirmBtn = overlay.querySelector('[data-confirm]');
     requestAnimationFrame(() => confirmBtn.focus());
 
-    const finish = (result) => {
+    let settled = false;
+    function finish(result) {
+      if (settled) return;
+      settled = true;
       overlay.classList.add('is-closing');
+      document.removeEventListener('keydown', onKey, true);
+      setScrollLock(lockKey, false);
       setTimeout(() => overlay.remove(), 200);
-      if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
-      document.removeEventListener('keydown', onKey);
+      if (previouslyFocused && document.contains(previouslyFocused)) {
+        previouslyFocused.focus?.({ preventScroll: true });
+      }
       resolve(result);
-    };
+    }
+
     const onKey = (event) => {
+      // Capturing here is deliberate: app shortcuts are bubble listeners, and a
+      // confirmation must be modal even when no managed overlay is underneath.
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      event.stopPropagation();
       if (event.key === 'Escape') {
-        event.stopPropagation();
+        event.preventDefault();
         finish(false);
+        return;
       }
-      if (event.key === 'Tab') {
-        const focusables = overlay.querySelectorAll('button');
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
+      if (event.key !== 'Tab') return;
+      const focusables = Array.from(overlay.querySelectorAll('button:not([disabled])'));
+      if (!focusables.length) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (!overlay.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
-    document.addEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
     overlay.addEventListener('click', (event) => {
       if (event.target === overlay) finish(false);
     });
@@ -443,19 +500,20 @@ export async function copyText(text) {
     return true;
   } catch {
     // Fallback for browsers without the async clipboard API.
+    let area = null;
     try {
-      const area = document.createElement('textarea');
+      area = document.createElement('textarea');
       area.value = text;
       area.setAttribute('readonly', '');
       area.style.position = 'fixed';
       area.style.opacity = '0';
       document.body.appendChild(area);
       area.select();
-      const ok = document.execCommand('copy');
-      area.remove();
-      return ok;
+      return document.execCommand('copy');
     } catch {
       return false;
+    } finally {
+      area?.remove();
     }
   }
 }
