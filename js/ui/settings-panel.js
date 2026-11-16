@@ -28,6 +28,8 @@ export class SettingsPanel {
     this.bindToggle('setting-autobreak', 'autoStartBreaks');
     this.bindToggle('setting-chime', 'chime');
     this.bindToggle('setting-tabtitle', 'tabTitle');
+    this.bindToggle('setting-duck-music', 'duckAmbienceForMusic');
+    this.bindToggle('setting-rewards', 'rewardToasts');
     this.bindToggle('setting-notify', 'notify', async (checked) => {
       if (!checked) return true;
       const granted = await ensureNotificationPermission();
@@ -172,6 +174,8 @@ export class SettingsPanel {
     setChecked('setting-chime', current.chime);
     setChecked('setting-notify', current.notify);
     setChecked('setting-tabtitle', current.tabTitle);
+    setChecked('setting-duck-music', current.duckAmbienceForMusic);
+    setChecked('setting-rewards', current.rewardToasts);
 
     const climate = $('#setting-climate');
     if (climate) climate.value = current.climate;

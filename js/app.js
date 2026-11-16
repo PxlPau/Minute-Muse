@@ -22,6 +22,10 @@ import { Journal } from './ui/journal.js';
 import { Library } from './ui/library.js';
 import { Stats } from './ui/stats.js';
 import { SettingsPanel } from './ui/settings-panel.js';
+import { CollectionPanel } from './ui/collection.js';
+import { ListeningRoom } from './ui/music.js';
+import { DashboardLayout } from './ui/layout.js';
+import { REWARDS, ensureWelcome, evaluateMarks } from './rewards.js';
 
 const app = {};
 
@@ -79,6 +83,19 @@ async function boot() {
   app.sounds = new SoundPanel({ ambience: app.ambience });
   app.sounds.init();
 
+  app.music = new ListeningRoom({ ambience: app.ambience });
+  app.music.init();
+
+  /* The cabinet is built after the timer: it listens to history for rewards. */
+  app.cabinet = new CollectionPanel({
+    overlays,
+    onOpenSettings: () => app.settingsPanel.open(),
+  });
+  app.cabinet.init();
+
+  app.layout = new DashboardLayout();
+  app.layout.init();
+
   app.journal = new Journal({ overlays, reader: app.reader, engine: app.engine });
   app.journal.init();
 
@@ -118,10 +135,24 @@ async function boot() {
   }
   app.atmosphere.update({ force: true });
 
-  app.engine.recover();
+  /* The cabinet is opened with a small float so day one is not empty. */
+  const welcomed = ensureWelcome();
+  evaluateMarks();
+
+  const recovery = app.engine.recover();
+  handleRecovery(recovery);
+  if (welcomed && !recovery) {
+    toast(`The cabinet is open — ${REWARDS.welcomeInk} ink and a free draw are waiting.`, {
+      icon: 'cards',
+      duration: 7200,
+      actionLabel: 'Open',
+      onAction: () => app.cabinet.open(),
+    });
+  }
   app.clock.start();
   app.timerPanel.render(app.engine.snapshot());
   app.stats.render();
+  app.cabinet.renderAll();
   hydrateClimateLabel();
   syncSettingsToEngine();
   document.body.classList.add('is-ready');
@@ -129,6 +160,54 @@ async function boot() {
     detail: { phase: timerState.value.phase, status: timerState.value.status },
   }));
   registerServiceWorker();
+}
+
+/**
+ * Explain what happened to a session that ran while the tab was closed.
+ * The engine has already logged and paid it out; this is the human sentence.
+ */
+function handleRecovery(recovery) {
+  if (!recovery) return;
+  if (recovery.resumed) {
+    const minutes = Math.max(1, Math.round(recovery.remaining / 60));
+    toast(`Welcome back — ${minutes} min left on the clock. It kept running.`, {
+      icon: 'timer',
+      duration: 5200,
+    });
+    return;
+  }
+  if (recovery.recovered) {
+    const record = recovery.record;
+    if (!record) {
+      toast('Your break finished while you were away — the next focus is ready when you are.', {
+        icon: 'timer',
+        duration: 5600,
+      });
+      window.dispatchEvent(new CustomEvent('mm:phase', {
+        detail: { phase: timerState.value.phase, status: timerState.value.status },
+      }));
+      return;
+    }
+    const minutes = Math.max(0, Math.round(record.focusSec / 60));
+    const reward = recovery.reward || {};
+    const marks = reward.marks || [];
+    const markInk = marks.reduce((total, mark) => total + (mark.reward?.ink || 0), 0);
+    const markEmber = marks.reduce((total, mark) => total + (mark.reward?.ember || 0), 0);
+    const bits = [];
+    if (reward.ink || markInk) bits.push(`+${(reward.ink || 0) + markInk} ink`);
+    if (reward.ember || markEmber) bits.push(`+${(reward.ember || 0) + markEmber} ember`);
+    if (marks.length) bits.push(...marks.map((mark) => mark.name));
+    const suffix = bits.length ? ` ${bits.join(' · ')}.` : '';
+    toast(
+      record?.phase === 'focus' && minutes
+        ? `That session finished while the tab was closed — ${minutes} min logged.${suffix}`
+        : 'A session finished while the tab was closed. It has been recorded.',
+      { icon: 'sparkle', duration: 6800 },
+    );
+    window.dispatchEvent(new CustomEvent('mm:phase', {
+      detail: { phase: timerState.value.phase, status: timerState.value.status },
+    }));
+  }
 }
 
 /** Offline support. Silent on insecure origins and in private windows. */
@@ -151,7 +230,7 @@ function registerServiceWorker() {
 /* -------------------------------------------------------------------------- */
 
 function wireChrome() {
-  ['library-overlay', 'stats-overlay', 'settings-overlay', 'credits-overlay'].forEach((id) => {
+  ['library-overlay', 'stats-overlay', 'settings-overlay', 'credits-overlay', 'collection-overlay'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) wireOverlay(el);
   });
@@ -163,6 +242,12 @@ function wireChrome() {
   $('#btn-open-credits')?.addEventListener('click', () => {
     overlays.close($('#settings-overlay'));
     window.setTimeout(() => overlays.open($('#credits-overlay')), 160);
+  });
+  $('#btn-collection')?.addEventListener('click', () => app.cabinet.open());
+  $('#btn-rail-open')?.addEventListener('click', () => app.cabinet.open());
+  $('#btn-rail-draw')?.addEventListener('click', () => {
+    app.cabinet.open();
+    app.cabinet.setTab('draw');
   });
   $('#btn-zen')?.addEventListener('click', () => toggleZen());
   $('#zen-exit')?.addEventListener('click', () => toggleZen(false));
@@ -248,26 +333,40 @@ function wireEvents() {
   app.engine.onEvent = (event) => {
     switch (event.type) {
       case 'complete':
-        announcePhase(event, playChime);
+        // A phase recovered after the tab was closed is announced with its
+        // reward in one sentence by handleRecovery() instead.
+        if (!event.silent) announcePhase(event, playChime);
+        app.cabinet.notifyReward(event.reward, { quiet: event.silent });
         window.dispatchEvent(new CustomEvent('mm:phase', {
           detail: { phase: event.next, status: timerState.value.status },
         }));
         app.timerPanel.render(app.engine.snapshot());
         app.stats.render();
+        app.cabinet.renderAll();
         break;
-      case 'begin':
-      case 'resume':
-      case 'pause':
-      case 'skip':
-      case 'reset':
       case 'lapsed':
         window.dispatchEvent(new CustomEvent('mm:phase', {
           detail: { phase: timerState.value.phase, status: timerState.value.status },
         }));
         app.timerPanel.render(app.engine.snapshot());
-        if (event.type === 'lapsed') {
-          toast('That session ran past its end — it has been closed quietly.', { icon: 'clock' });
-        }
+        toast('That session ran past its end — it has been closed quietly.', { icon: 'clock' });
+        break;
+      case 'begin':
+      case 'resume':
+      case 'pause':
+      case 'reset':
+        window.dispatchEvent(new CustomEvent('mm:phase', {
+          detail: { phase: timerState.value.phase, status: timerState.value.status },
+        }));
+        app.timerPanel.render(app.engine.snapshot());
+        break;
+      case 'skip':
+        app.cabinet.notifyReward(event.reward);
+        window.dispatchEvent(new CustomEvent('mm:phase', {
+          detail: { phase: timerState.value.phase, status: timerState.value.status },
+        }));
+        app.timerPanel.render(app.engine.snapshot());
+        app.cabinet.renderAll();
         break;
       default:
         break;
@@ -307,6 +406,7 @@ function wireEvents() {
 
   window.addEventListener('mm:data-restored', () => {
     app.tasks.render();
+    app.cabinet.renderAll();
     app.journal.hydrate();
     app.journal.renderSaved();
     app.journal.renderIntention();
@@ -417,6 +517,10 @@ function wireKeyboard() {
         event.preventDefault();
         app.journal.open();
         break;
+      case 'c':
+        event.preventDefault();
+        app.cabinet.open();
+        break;
       case '/':
         event.preventDefault();
         app.library.open();
@@ -464,4 +568,12 @@ app.state = { settings, tasks };
 app.tasksStore = tasks;
 app.playChime = playChime;
 app.store = { exportData };
+// Getters, not snapshots: these modules are created during boot, after this
+// module has finished evaluating (and after tests have imported it).
+Object.defineProperties(app, {
+  cabinetPanel: { enumerable: true, get: () => app.cabinet },
+  musicRoom: { enumerable: true, get: () => app.music },
+  layoutPanel: { enumerable: true, get: () => app.layout },
+  soundsPanel: { enumerable: true, get: () => app.sounds },
+});
 window.minuteMuse = app;

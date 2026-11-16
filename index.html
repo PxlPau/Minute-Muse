@@ -10,11 +10,12 @@
     img-src 'self' data: https://images.unsplash.com https://*.unsplash.com;
     media-src 'self' data: blob:;
     connect-src 'self';
+    frame-src https://open.spotify.com https://embed.music.apple.com;
     form-action 'none';
     base-uri 'self';
   " />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Minute Muse is a calm, literary focus workspace: a clock that tells the time through passages from books, paired with a focus timer, tasks, ambience and a private journal." />
+  <meta name="description" content="Minute Muse is a calm, literary focus workspace: a clock told in book passages, a focus timer that survives a closed tab, 39 soundscapes, a listening room, and a cabinet of curios." />
   <meta name="theme-color" content="#0a0b0f" />
   <meta name="color-scheme" content="dark" />
   <title>Minute Muse — A Literary Focus Workspace</title>
@@ -72,6 +73,29 @@
       <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11.2v5.2"/><path d="M12 7.8h.01"/></symbol>
       <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="4.6"/><circle cx="12" cy="12" r="1"/></symbol>
       <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6.8-6.2 6.8-11A6.8 6.8 0 0 0 5.2 10c0 4.8 6.8 11 6.8 11Z"/><circle cx="12" cy="10" r="2.6"/></symbol>
+      <symbol id="i-wind" viewBox="0 0 24 24"><path d="M3 8h10.5a3 3 0 1 0-3-3"/><path d="M3 12.5h13a3 3 0 1 1-3 3"/><path d="M3 17h7"/></symbol>
+      <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9"/></symbol>
+      <symbol id="i-anchor" viewBox="0 0 24 24"><circle cx="12" cy="5.4" r="2.4"/><path d="M12 7.8v12.4"/><path d="M5 12H3.4a8.6 8.6 0 0 0 17.2 0H19"/></symbol>
+      <symbol id="i-train" viewBox="0 0 24 24"><rect x="5" y="3.4" width="14" height="13.2" rx="3.4"/><path d="M5 10.6h14M9 20.6l1.8-4M15 20.6l-1.8-4M9.4 6.6h.01M14.6 6.6h.01"/></symbol>
+      <symbol id="i-lamp" viewBox="0 0 24 24"><path d="M8 10h8l3 9H5z"/><path d="M12 3v7M9.5 20.6h5"/></symbol>
+      <symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="2"/><path d="M12 3.4a8.6 8.6 0 0 1 8.6 8.6"/></symbol>
+      <symbol id="i-prism" viewBox="0 0 24 24"><path d="M12 3.6 21 19.4H3z"/><path d="M12 3.6v15.8M21 19.4h-1.4"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13.4 2.6 5 13.8h5.4L9.8 21.4 18.6 9.8H13z"/></symbol>
+      <symbol id="i-building" viewBox="0 0 24 24"><path d="M4 21V6.6L12 3l8 3.6V21"/><path d="M9 21v-6h6v6M8 9h.01M12 9h.01M16 9h.01M8 12.4h.01M12 12.4h.01M16 12.4h.01"/></symbol>
+      <symbol id="i-cards" viewBox="0 0 24 24"><rect x="3.4" y="7.4" width="11" height="14" rx="2" transform="rotate(-8 8.9 14.4)"/><rect x="9.6" y="4.6" width="11" height="14" rx="2" transform="rotate(7 15.1 11.6)"/><path d="M15.6 10.4l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></symbol>
+      <symbol id="i-ink" viewBox="0 0 24 24"><path d="M12 3.2c3.2 4.2 5.4 6.8 5.4 9.8a5.4 5.4 0 0 1-10.8 0c0-3 2.2-5.6 5.4-9.8Z"/><path d="M9.4 13.6a2.6 2.6 0 0 0 2.6 2.6"/></symbol>
+      <symbol id="i-ember" viewBox="0 0 24 24"><path d="M12 2.8c2.6 3.6 4.4 5.8 4.4 8.4A4.4 4.4 0 0 1 12 15.6a4.4 4.4 0 0 1-4.4-4.4c0-2.6 1.8-4.8 4.4-8.4Z"/><path d="M12 21.4a3 3 0 0 0 3-3c0-1.4-.9-2.6-3-4.6-2.1 2-3 3.2-3 4.6a3 3 0 0 0 3 3Z"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.6 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 10l6.1-.9z"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.4" y="10.4" width="15.2" height="10.2" rx="2.6"/><path d="M8 10.4V7.6a4 4 0 0 1 8 0v2.8"/></symbol>
+      <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M3.4 7.4h3.2l3.4 4.6M3.4 16.6h3.2l10-9.2h3.8"/><path d="M17.4 4.2l3.2 3.2-3.2 3.2M17.4 13.4l3.2 3.2-3.2 3.2"/><path d="M14.8 14.6l1.6 2h3.8"/></symbol>
+      <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M6.4 4.4h11.2a3 3 0 0 1 3 3v2.2M17.6 19.6H6.4a3 3 0 0 1-3-3v-2.2"/><path d="M4.4 6.4l2.8-2.8M4.4 6.4l2.8 2.8M19.6 17.6l-2.8 2.8M19.6 17.6l-2.8-2.8"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18.6 5.2 9 12l9.6 6.8z"/><path d="M5.4 5v14"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M5.4 5.2 15 12l-9.6 6.8z"/><path d="M18.6 5v14"/></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19.4V4.6M5.4 11.2 12 4.6l6.6 6.6"/></symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 4.6v14.8M5.4 12.8 12 19.4l6.6-6.6"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4.4h5.6V10"/><path d="M19.6 4.4 11 13"/><path d="M18.4 14v5.6H4.4V5.6H10"/></symbol>
+      <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4.4 15.4v-3.2a7.6 7.6 0 0 1 15.2 0v3.2"/><rect x="2.8" y="14.4" width="4" height="6.2" rx="2"/><rect x="17.2" y="14.4" width="4" height="6.2" rx="2"/></symbol>
+
     </defs>
   </svg>
 
@@ -103,6 +127,10 @@
       </button>
 
       <div class="topbar__actions">
+        <button class="icon-btn icon-btn--badge" id="btn-collection" type="button" aria-label="Open the cabinet of curios" data-tooltip="Cabinet of curios">
+          <svg class="icon"><use href="#i-cards"></use></svg>
+          <span class="badge-dot" id="daily-dot" hidden aria-hidden="true"></span>
+        </button>
         <button class="icon-btn" id="btn-library" type="button" aria-label="Search the passage library" data-tooltip="Passage library">
           <svg class="icon"><use href="#i-search"></use></svg>
         </button>
@@ -123,7 +151,7 @@
   <main class="shell" id="main">
     <!-- STUDY RAIL -->
     <aside class="rail" id="rail" aria-label="Study tools">
-      <section class="panel panel--timer panel--focus" aria-labelledby="timer-heading">
+      <section class="panel panel--timer panel--focus" id="panel-timer" data-panel="timer" aria-labelledby="timer-heading">
         <div class="panel__head">
           <h2 class="panel__title" id="timer-heading">
             <svg class="icon" aria-hidden="true"><use href="#i-timer"></use></svg>
@@ -167,7 +195,7 @@
         </div>
       </section>
 
-      <section class="panel panel--tasks" aria-labelledby="tasks-heading">
+      <section class="panel panel--tasks" id="panel-tasks" data-panel="tasks" aria-labelledby="tasks-heading">
         <div class="panel__head">
           <h2 class="panel__title" id="tasks-heading">
             <svg class="icon" aria-hidden="true"><use href="#i-check-square"></use></svg>
@@ -191,19 +219,122 @@
         </div>
       </section>
 
-      <section class="panel panel--sounds" aria-labelledby="sounds-heading">
+      <section class="panel panel--sounds" id="panel-sounds" data-panel="sounds" aria-labelledby="sounds-heading">
         <div class="panel__head">
           <h2 class="panel__title" id="sounds-heading">
             <svg class="icon" aria-hidden="true"><use href="#i-waves"></use></svg>
             Ambience
           </h2>
+          <span class="panel__meta" id="sounds-count">39 beds</span>
           <button class="icon-btn" id="btn-mute" type="button" aria-pressed="false" aria-label="Mute all ambience" data-tooltip="Mute all">
             <svg class="icon"><use href="#i-volume"></use></svg>
           </button>
         </div>
+        <div class="sound-tools">
+          <label class="sr-only" for="sound-search">Search soundscapes</label>
+          <input id="sound-search" type="search" placeholder="Search beds — rain, train, nocturne…" autocomplete="off" />
+          <button class="icon-btn" id="btn-sound-favourites" type="button" aria-pressed="false"
+            aria-label="Show favourites only" data-tooltip="Favourites only">
+            <svg class="icon"><use href="#i-star"></use></svg>
+          </button>
+        </div>
+        <div class="sound-cats" id="sound-cats" role="group" aria-label="Soundscape categories"></div>
         <div class="sound-list" id="sound-list"></div>
         <div class="sound-presets" id="sound-presets" role="group" aria-label="Ambience presets"></div>
         <p class="field-hint" id="audio-hint" style="margin-top:10px;">Nothing plays on its own. Each layer fades in when you switch it on.</p>
+      </section>
+
+      <section class="panel panel--music" id="panel-music" data-panel="music" aria-labelledby="music-heading">
+        <div class="panel__head">
+          <h2 class="panel__title" id="music-heading">
+            <svg class="icon" aria-hidden="true"><use href="#i-headphones"></use></svg>
+            Listening room
+          </h2>
+          <span class="panel__meta" id="music-meta">Local</span>
+        </div>
+
+        <div class="segmented segmented--sm" id="music-source" role="group" aria-label="Music source">
+          <button type="button" data-source="local">Local</button>
+          <button type="button" data-source="spotify">Spotify</button>
+          <button type="button" data-source="apple">Apple Music</button>
+        </div>
+
+        <div class="music-pane" id="music-local">
+          <div class="music-now">
+            <span class="music-now__title" id="music-now">Nothing playing</span>
+            <span class="music-now__sub" id="music-sub">Import a few files to begin</span>
+          </div>
+          <div class="music-progress" id="music-progress" role="presentation" data-tooltip="Seek">
+            <span id="music-progress-fill"></span>
+          </div>
+          <div class="music-controls">
+            <button class="icon-btn" id="btn-music-shuffle" type="button" aria-pressed="false" aria-label="Shuffle" data-tooltip="Shuffle">
+              <svg class="icon"><use href="#i-shuffle"></use></svg>
+            </button>
+            <button class="icon-btn" id="btn-music-prev" type="button" aria-label="Previous track" data-tooltip="Previous">
+              <svg class="icon"><use href="#i-prev"></use></svg>
+            </button>
+            <button class="music-play" id="btn-music-play" type="button" aria-label="Play" aria-pressed="false">
+              <svg class="icon"><use href="#i-play"></use></svg>
+            </button>
+            <button class="icon-btn" id="btn-music-next" type="button" aria-label="Next track" data-tooltip="Next">
+              <svg class="icon"><use href="#i-next"></use></svg>
+            </button>
+            <button class="icon-btn" id="btn-music-repeat" type="button" aria-pressed="false" aria-label="Repeat: off" data-mode="off">
+              <svg class="icon"><use href="#i-repeat"></use></svg>
+              <span class="repeat-badge" data-repeat-mode></span>
+            </button>
+          </div>
+          <div class="music-volume">
+            <svg class="icon icon--sm" aria-hidden="true"><use href="#i-volume"></use></svg>
+            <label class="sr-only" for="music-volume">Music volume</label>
+            <input type="range" id="music-volume" min="0" max="100" step="1" value="55" style="--fill:55%" />
+          </div>
+          <div class="music-drop" id="music-drop">
+            <button class="btn btn--ghost" type="button" id="btn-music-add">
+              <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+              Add files
+            </button>
+            <span class="field-hint">or drop audio here</span>
+            <input type="file" id="music-file" accept="audio/*" multiple hidden aria-label="Choose audio files" />
+          </div>
+          <ul class="music-list" id="music-list"></ul>
+          <p class="field-hint" id="music-hint">Files are kept in this browser, on this device. Nothing is uploaded.</p>
+        </div>
+
+        <div class="music-pane" id="music-embed" hidden>
+          <label class="field-hint" for="music-link">Paste a link to a <span id="music-embed-service">Spotify</span> track, album or playlist.</label>
+          <div class="music-link-row">
+            <input id="music-link" type="url" inputmode="url" autocomplete="off" placeholder="https://open.spotify.com/playlist/…" />
+            <button class="btn btn--ghost" type="button" id="btn-music-embed">Load</button>
+          </div>
+          <div class="music-embed-slot" id="music-embed-slot"></div>
+          <p class="field-hint" id="music-embed-hint">
+            Optional, and off by default. The official player loads only after you paste a link,
+            and may set its own cookies — see the privacy note.
+          </p>
+          <div class="music-quick" id="music-quick"></div>
+        </div>
+      </section>
+
+      <section class="panel panel--cabinet" id="panel-cabinet" data-panel="cabinet" aria-labelledby="cabinet-rail-heading">
+        <div class="panel__head">
+          <h2 class="panel__title" id="cabinet-rail-heading">
+            <svg class="icon" aria-hidden="true"><use href="#i-cards"></use></svg>
+            The cabinet
+          </h2>
+          <span class="panel__meta" id="rail-daily">Today’s draw is waiting</span>
+        </div>
+        <div class="cabinet-railcard">
+          <div class="rail-wallet" id="rail-wallet"></div>
+          <div class="rail-rank" id="rail-rank"></div>
+          <div class="meter" id="rail-meter" aria-hidden="true"><span></span></div>
+          <div class="rail-streak" id="rail-streak"></div>
+        </div>
+        <div class="cabinet-actions">
+          <button class="btn btn--primary" type="button" id="btn-rail-draw">Draw a curio</button>
+          <button class="btn btn--ghost" type="button" id="btn-rail-open">Open cabinet</button>
+        </div>
       </section>
     </aside>
 
@@ -319,6 +450,10 @@
     <button class="dock__btn" type="button" data-sheet="sounds">
       <svg class="icon" aria-hidden="true"><use href="#i-waves"></use></svg>
       Sounds
+    </button>
+    <button class="dock__btn" type="button" data-sheet="music">
+      <svg class="icon" aria-hidden="true"><use href="#i-headphones"></use></svg>
+      Music
     </button>
     <button class="dock__btn" type="button" data-open="journal">
       <svg class="icon" aria-hidden="true"><use href="#i-pen"></use></svg>
@@ -472,6 +607,29 @@
     </div>
   </div>
 
+
+  <!-- CABINET OF CURIOS -->
+  <div class="overlay" id="collection-overlay" hidden>
+    <div class="modal modal--wide modal--tall cabinet-modal" role="dialog" aria-modal="true" aria-labelledby="cabinet-title">
+      <div class="modal__head">
+        <div>
+          <h2 id="cabinet-title">Cabinet of curios</h2>
+          <p>Eighty-four small, particular things. Earned here, kept here.</p>
+        </div>
+        <button class="modal__close" type="button" data-close aria-label="Close the cabinet">
+          <svg class="icon"><use href="#i-x"></use></svg>
+        </button>
+      </div>
+      <div class="cabinet-hud" id="cabinet-hud"></div>
+      <div class="cabinet-tabs" id="cabinet-tabs" role="tablist" aria-label="Cabinet sections"></div>
+      <div class="modal__body" id="cabinet-panel" role="tabpanel" aria-live="polite"></div>
+      <div class="modal__foot">
+        <span class="field-hint spacer" id="cabinet-foot-note">Everything stays on this device.</span>
+        <button class="btn btn--ghost" type="button" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SETTINGS MODAL -->
   <div class="overlay" id="settings-overlay" hidden>
     <div class="modal modal--tall" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -517,6 +675,45 @@
             <div class="setting-row__control">
               <label class="switch"><input type="checkbox" id="setting-motion" aria-label="Reduce motion" /><span class="switch__track"></span></label>
             </div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <p class="section-label">Your dashboard</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Accent</strong><span>Tints the lamp, the dial and every highlight.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented segmented--wrap" id="setting-accent" role="group" aria-label="Accent colour"></div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Density</strong><span>Compact fits more on a small screen; comfortable breathes.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented" id="setting-density" role="group" aria-label="Density"></div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Panel finish</strong><span>Glass blurs the backdrop, outline is bare, paper is opaque.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented" id="setting-cards" role="group" aria-label="Panel finish"></div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Rail side</strong><span>Which edge the study tools sit against, on wide screens.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented" id="setting-rail" role="group" aria-label="Rail side"></div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Reading width</strong><span>How wide the passage is allowed to run.</span></div>
+            <div class="setting-row__control">
+              <div class="segmented" id="setting-width" role="group" aria-label="Reading width"></div>
+            </div>
+          </div>
+          <div class="setting-row setting-row--stack">
+            <div class="setting-row__label"><strong>Panels</strong><span>Reorder with the arrows; switch one off to hide it entirely.</span></div>
+            <div class="layout-panels" id="layout-panels"></div>
+            <button class="btn btn--quiet" type="button" id="btn-layout-reset">Reset the arrangement</button>
           </div>
         </div>
 
@@ -587,6 +784,35 @@
         </div>
 
         <div class="setting-group">
+          <p class="section-label">Listening room</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Duck the ambience for music</strong><span>Lowers the soundscape mixer while a record is playing.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-duck-music" aria-label="Duck the ambience for music" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Streaming embeds</strong><span>Spotify and Apple Music players load only when you paste a link in the listening room. No account is connected and no token is stored.</span></div>
+            <div class="setting-row__control">
+              <span class="field-hint">Managed in the panel</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <p class="section-label">The cabinet</p>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>Reward notices</strong><span>Small toasts for ink, ember and marks earned.</span></div>
+            <div class="setting-row__control">
+              <label class="switch"><input type="checkbox" id="setting-rewards" aria-label="Reward notices" /><span class="switch__track"></span></label>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label"><strong>How it is earned</strong><span>One ink per focused minute. Ember only at milestones. Nothing is ever purchasable with money and there is no account.</span></div>
+          </div>
+        </div>
+
+        <div class="setting-group">
           <p class="section-label">Keyboard</p>
           <div class="shortcut-list">
             <div class="shortcut"><span>Start or pause the session</span><span><kbd>Space</kbd></span></div>
@@ -596,6 +822,8 @@
             <div class="shortcut"><span>Search the library</span><span><kbd>/</kbd></span></div>
             <div class="shortcut"><span>Zen reading mode</span><span><kbd>Z</kbd></span></div>
             <div class="shortcut"><span>Immersive session view</span><span><kbd>F</kbd></span></div>
+            <div class="shortcut"><span>Open the cabinet</span><span><kbd>C</kbd></span></div>
+            <div class="shortcut"><span>Mute or unmute ambience</span><span><kbd>M</kbd></span></div>
             <div class="shortcut"><span>Close whatever is open</span><span><kbd>Esc</kbd></span></div>
           </div>
         </div>
@@ -671,6 +899,15 @@
           <section class="credit-section">
             <h3>Photography</h3>
             <p>Atmospheric photography comes from photographers on <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash</a> and is credited in the footer with a link to each photographer’s profile, as the API guidelines require.</p>
+          </section>
+          <section class="credit-section">
+            <h3>Soundscapes &amp; curios</h3>
+            <p>Everything beyond the five field recordings is synthesised in your browser from short recipes in <code>soundscapes.js</code>: noise beds, held drones, small grains and generative figures. No samples, no licences, no downloads. Each curio's portrait is an SVG drawn from its own id, so the cabinet ships no images and no two pieces look alike.</p>
+            <p>The twelve collections, their epigraphs and the marks are original inventions for this room. Any resemblance to a real institution, isle or book scorpion is affectionate.</p>
+          </section>
+          <section class="credit-section">
+            <h3>Streaming players</h3>
+            <p>The listening room can embed the official Spotify and Apple Music players. They load only after you paste a link, and are served by those services under their own terms and privacy policies. Minute Muse stores no credentials and connects no account.</p>
           </section>
           <section class="credit-section">
             <h3>The code</h3>

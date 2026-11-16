@@ -32,17 +32,43 @@ own device.
 - **Focus timer** — focus / short break / long break, with a long break every fourth round.
   Presets for 5, 15, 25, 45, 50 and 90 minutes, adjustable in Settings.
 - **It is a clock, not a metronome** — a running phase stores the wall-clock time it ends, so
-  a refresh, a locked screen or a throttled background tab can never make it drift. Close the
-  tab and the session is still there when you come back.
+  a refresh, a locked screen or a throttled background tab can never make it drift.
+- **A session survives a closed tab** — shut the tab mid-round and the phase keeps running on
+  the wall clock. Come back before it ends and the countdown is simply where it should be.
+  Come back after it ends (within a day) and the session is logged, paid out and celebrated
+  once; beyond that window it is closed quietly rather than inventing a night of focus.
 - **Immersive view** — a full-screen dial with the session's intention and nothing else.
 - **Session intention** — the task at the top of your list becomes what the session is *for*.
 
 **Support**
 
 - **Session tasks** — add, tick, rename, clear. Completed items sink quietly to the bottom.
-- **Layered ambience mixer** — five recorded loops (rain, fireplace, two forest beds and
-  jazz) plus two synthesised beds. Every layer has its own volume and fades independently,
-  so you can build a room instead of switching a track. Saved presets for common blends.
+- **A catalogue of 39 soundscapes** — five field recordings (rain, fireplace, two forest
+  beds, jazz) and thirty-four beds synthesised in the browser: tin-roof rain, storm at the
+  window, wind over the moor, stream, tide cave, embers, crickets, dawn chorus, café murmur,
+  night train, library hush, cathedral nave, vinyl crackle, tape hiss, substation hum, and
+  generative music (a nocturne, a music box, slow strings, a glass harmonica). Every layer
+  fades independently, has its own volume, can be searched, filtered by category and starred;
+  fourteen blends are saved as presets.
+- **Listening room** — a real music player for your own files. Drag audio into the panel and it
+  is stored in IndexedDB on this device, with play/pause/next/previous, shuffle, repeat-one/all,
+  seeking and a volume control. Or paste a Spotify or Apple Music link and the official player
+  is embedded — nothing loads from those services until you do.
+- **A dashboard that is yours** — seven accent colours, comfortable or compact density, glass /
+  outline / paper panel finishes, the study rail on either side, three reading widths, and a
+  panel list you can reorder or hide. Preferences follow you back to the same browser.
+- **The Cabinet of Curios** — 84 niche collectibles in twelve themed collections (The
+  Marginalists, The Orrery Club, The Lighthouse Ledger, The Paper Bestiary, Sonic Curiosities,
+  The Cartographers’ Guild and more). Every portrait is generated as SVG from the curio’s own
+  id, so nothing ships as an image and no two pieces look alike.
+- **Two currencies, no money** — *ink* is the soft currency, earned one unit per focused minute
+  plus completion bonuses. *Ember* is hard currency, granted only at milestones: the first
+  finished session of a day, a completed cycle, certain marks, or occasionally found in the
+  ash of a long session. Neither can be bought.
+- **Motivation that stays honest** — daily free draws, ink draws, a triple draw, a guaranteed
+  rare for ember, a pity counter, a rotating three-piece Antiquarian’s Shelf, and singular
+  pieces that can only be assembled from the other six in a collection. 22 marks and eight
+  ranks (Curious → The Long Read) track the practice rather than the performance.
 - **Journal** — day-keyed notes that autosave as you type, plus your saved passages.
 - **Focus record** — today, this week, typical session, streak, fourteen days of bars, and a
   log of recent sessions. Only time actually spent counts.
@@ -50,9 +76,11 @@ own device.
 - **Offline** — a service worker keeps the shell and collection available when the network
   is not.
 
-**Preferences** — Lamplight or Moonlight palette, three reading sizes, 24-hour clock, quiet
-backdrop, reduced motion, climate override, session lengths, chimes and notifications.
-Everything is exportable and erasable from Settings.
+**Preferences** — Lamplight or Moonlight palette, an accent of your own, three reading sizes,
+comfortable or compact density, three panel finishes, rail side and reading width, panel
+order and visibility, 24-hour clock, quiet backdrop, reduced motion, climate override, session
+lengths, chimes, notifications and reward notices. Everything — including your cabinet — is
+exportable and erasable from Settings.
 
 ---
 
@@ -68,6 +96,7 @@ Everything is exportable and erasable from Settings.
 | `Z` | Zen mode |
 | `F` | Immersive view |
 | `M` | Mute ambience |
+| `C` | Open the cabinet of curios |
 | `←` `→` | Previous / next minute |
 | `Esc` | Close, or return to now |
 
@@ -87,6 +116,11 @@ js/
   quotes.js             the literary collection: lookup, neighbour fallback, search
   timer.js              session engine: wall-clock countdown, phases, history, chimes
   audio.js              layered ambience mixer (media + Web Audio synthesis)
+  soundscapes.js        39-bed catalogue and the four synthesis engines that build them
+  music.js              local music library (IndexedDB) + transport + Spotify/Apple link parsing
+  curios.js             the 84-curio catalogue, 22 marks and eight ranks
+  curio-art.js          deterministic SVG portraits generated from each curio's id
+  rewards.js            ink, ember, draws, crafting, the shelf and mark evaluation
   util.js               formatting, storage signals, toasts, confirm dialogs
   ui/
     overlays.js         one owner for open/close, focus trap, Escape, scroll lock
@@ -95,7 +129,10 @@ js/
     reader.js           the page-turner: passages, preview, save, copy, reflect
     timer-panel.js      timer dial + immersive view + document title
     tasks.js            the session task list
-    sounds.js           the mixer UI and its saved blends
+    sounds.js           the mixer: search, categories, favourites, saved blends
+    music.js            the listening room: local transport and streaming embeds
+    collection.js       the cabinet overlay, rail wallet and reward announcements
+    layout.js           dashboard arrangement: accent, density, panels, rail side
     journal.js          notes and saved passages
     library.js          search across the collection
     stats.js            the focus record
@@ -106,6 +143,7 @@ tools/
   static-test.mjs       checks scripts, offline assets, and the quote collection
   audio-test.mjs        exercises the mixer against a stub Web Audio graph
   resilience-test.mjs   boots five failure modes and checks recovery
+  cabinet-test.mjs      economy, draws, crafting, marks, layout, music links and sanitisation
   curator-test.mjs      checks the image curator's missing-key and outage paths
   time-of-day-test.mjs  reruns the suite at the minutes that used to flake
   assertions.mjs        shared "did a passage really render" helpers
@@ -120,9 +158,15 @@ generate-images.js      six-hour photography curator (GitHub Action)
   changes, the reader, atmosphere and climate label are told once. The timer derives its
   remaining seconds from `endsAt`, so nothing accumulates drift.
 - **State is a set of small signals.** Each store (`settings`, `tasks`, `notes`, `bookmarks`,
-  `history`, `timer`) serialises to one `localStorage` key, notifies its subscribers, and
-  syncs across tabs. Every value is normalised on read, so a corrupt or outdated entry can
-  never break the page.
+  `history`, `timer`, `collection`) serialises to one `localStorage` key, notifies its
+  subscribers, and syncs across tabs. Every value is normalised on read, so a corrupt or
+  outdated entry can never break the page.
+- **Awards are a ledger, not a side effect.** Every currency payment is written into
+  `mm.collection` under the session's id, so a session recovered from a closed tab is paid
+  exactly once — even if the recovery runs twice, or the page is reloaded mid-settlement.
+- **Collectibles cost nothing to ship.** There are no card images: each portrait is SVG
+  generated from a hash of the curio's id, so the cabinet is ~40 kB of code and prose instead
+  of hundreds of megabytes of art — and it works offline.
 - **Nothing plays on its own.** Audio waits for a deliberate gesture and fades in and out;
   the ambience ducks slightly while focusing and breathes back on breaks.
 - **The collection is local.** Quotes ship as a static `quotes.json`; the client makes no
@@ -136,7 +180,7 @@ generate-images.js      six-hour photography curator (GitHub Action)
 
 ```bash
 npm run serve        # http://localhost:8000
-npm test             # app + mixer + resilience + curator + static suites, headless
+npm test             # app + mixer + resilience + curator + cabinet + static suites, headless
 npm run test:minutes # the app suite again, pinned to 10 awkward minutes
 npm run test:static  # scripts, offline assets, and the quote collection
 npm run test:all     # test + the time-of-day matrix
@@ -167,10 +211,13 @@ to its quiet gradient.
 1. **Name the work.** Add the one thing to the task list; it becomes the session's intention.
 2. **Set the room.** Choose a blend in Ambience, or leave it quiet.
 3. **Start a focus round.** The timer, document title and immersive view all show what is left.
+   Close the tab if you like — it keeps running.
 4. **Read while you think.** The clock turns its page every minute — or hold it, if the passage
-   is worth sitting with.
-5. **Break properly.** Breaks are part of the session, not an interruption to it.
-6. **Close the day.** Jot a line in the journal; the focus record keeps the honest tally.
+   is worth sitting with. Add a soundscape, or put a record on.
+5. **Break properly.** Breaks are part of the session, not an interruption to it. The ink you
+   earned is waiting in the cabinet; the daily draw costs nothing.
+6. **Close the day.** Jot a line in the journal; the focus record and the cabinet keep the
+   honest tally.
 
 ---
 
@@ -197,7 +244,9 @@ All recorded loops are public domain (CC0):
 | Forest birds II | sama66 | [Freesound #462137](https://freesound.org/s/462137/) |
 | Smooth jazz | amandedou | [Freesound #317673](https://freesound.org/s/317673/) |
 
-*Night waves* and *Deep brown noise* are synthesised in the browser with the Web Audio API.
+Every other soundscape — including *Night waves*, *Deep brown noise*, *Rain on a tin roof*,
+*Nocturne for one lamp* and *Glass harmonica* — is synthesised in the browser from a short
+recipe. Nothing is sampled, so nothing needs a licence.
 
 ### Code
 Code is [MIT licensed](LICENSE). The licence covers the code only — see the

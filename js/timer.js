@@ -11,6 +11,16 @@
 
 import { timerState, recordSession, settings } from './store.js';
 import { toast } from './util.js';
+import { awardSession, awardCycle } from './rewards.js';
+
+/**
+ * How long a finished session remains believable when you come back to it.
+ * The phase keeps running on the wall clock whether or not the tab is open, so
+ * a session that finished a minute — or a night — ago can still be settled when
+ * the page returns. Beyond this window it is closed quietly: a session that
+ * ended a week ago is a fact about a closed tab, not a fact about your focus.
+ */
+export const AWAY_CLAIM_WINDOW = 24 * 60 * 60; // 24 hours, in seconds
 
 export const PHASES = {
   focus: { id: 'focus', label: 'Focus', short: 'Focus', kind: 'focus' },
@@ -160,8 +170,10 @@ export class SessionEngine {
     const state = timerState.value;
     if (state.status === 'idle') return;
     const elapsed = Math.max(0, this.plannedSeconds() - this.remaining);
+    let reward = null;
     if (state.phase === 'focus' && elapsed >= 30) {
       this.logSession({ focusSec: elapsed, completed: false, phase: 'focus' });
+      reward = this.lastAward;
     }
     const next = state.phase === 'focus'
       ? this.nextAfterFocus(state.round)
@@ -181,7 +193,7 @@ export class SessionEngine {
     });
     this.stopTicking();
     this.onTick(this.snapshot());
-    this.emit('skip', { phase: next.phase });
+    this.emit('skip', { phase: next.phase, reward });
   }
 
   reset() {
@@ -204,20 +216,33 @@ export class SessionEngine {
     this.emit('reset');
   }
 
-  /** Called when a running phase reaches zero. */
-  complete({ silent = false } = {}) {
-    if (this.completing) return;
+  /**
+   * Called when a running phase reaches zero.
+   * `recovered` marks a phase that finished while the page was closed: it is
+   * logged and rewarded exactly once, and its break is *not* auto-started in
+   * the past (nobody was here to take it).
+   */
+  complete({ silent = false, recovered = false } = {}) {
+    if (this.completing) return null;
     this.completing = true;
+    this.lastAward = null;
     const state = timerState.value;
     const planned = this.plannedSeconds();
     let nextPhase = state.phase;
     let nextRound = state.round;
+    let record = null;
+    let reward = null;
 
     if (state.phase === 'focus') {
-      this.logSession({ focusSec: planned, completed: true, phase: 'focus' });
+      record = this.logSession({ focusSec: planned, completed: true, phase: 'focus', recovered });
+      reward = this.lastAward;
       const next = this.nextAfterFocus(state.round);
       nextPhase = next.phase;
       nextRound = next.round;
+      if (nextPhase === 'long') {
+        this.cycleAward = awardCycle();
+        if (this.cycleAward) reward = mergeRewards(reward, this.cycleAward);
+      }
     } else {
       const next = this.nextAfterBreak(state.phase, state.round);
       nextPhase = next.phase;
@@ -239,11 +264,20 @@ export class SessionEngine {
     });
     this.stopTicking();
     this.onTick(this.snapshot());
-    this.emit('complete', { finished: state.phase, next: nextPhase, round: nextRound, silent });
+    this.emit('complete', {
+      finished: state.phase,
+      next: nextPhase,
+      round: nextRound,
+      silent,
+      recovered,
+      record,
+      reward,
+    });
 
-    const autoStart = settings.value.autoStartBreaks && nextPhase !== 'focus';
+    const autoStart = settings.value.autoStartBreaks && nextPhase !== 'focus' && !recovered;
     if (autoStart) this.begin({ phase: nextPhase, round: nextRound });
     this.completing = false;
+    return record;
   }
 
   /** After a focus round: a short break, or a long one on the Nth round. */
@@ -258,7 +292,7 @@ export class SessionEngine {
     return { phase: 'focus', round: currentPhase === 'long' ? 1 : (round || 1) + 1 };
   }
 
-  logSession({ focusSec, completed, phase }) {
+  logSession({ focusSec, completed, phase, recovered = false }) {
     const state = timerState.value;
     let taskLabel = null;
     try {
@@ -273,25 +307,40 @@ export class SessionEngine {
       plannedSec: this.plannedSeconds(),
       focusSec,
       completed,
+      recovered,
       task: taskLabel,
       intent: state.intent,
     });
-    this.emit('logged', { record });
+    // Pay the session out immediately: currency, marks, and the odd curio.
+    this.lastAward = awardSession(record);
+    this.emit('logged', { record, reward: this.lastAward });
     return record;
   }
 
   /**
-   * Settle the persisted session on boot. A phase that ended moments ago while
-   * the page was closed still counts; one that lapsed long ago does not.
+   * Settle the persisted session on boot.
+   *
+   * A session keeps running on the wall clock after the tab is closed, so a
+   * phase whose end time has passed is settled here: it is logged, rewarded
+   * and announced. If it ended more than AWAY_CLAIM_WINDOW ago, it is closed
+   * quietly instead — we do not invent a night of focus.
+   *
+   * @returns {{resumed?: boolean, remaining?: number, recovered?: boolean,
+   *            record?: object|null, overdue?: number, expired?: boolean}|null}
    */
   recover() {
     const state = timerState.value;
-    if (state.status !== 'running' || !state.endsAt) return;
+    if (state.status !== 'running' || !state.endsAt) return null;
     const overdue = (Date.now() - new Date(state.endsAt).getTime()) / 1000;
-    if (overdue <= 0) return;
-    if (overdue <= 150) {
-      this.complete();
-      return;
+    if (overdue < 0) {
+      // Still running: the countdown is already correct, but the UI wants to
+      // say "welcome back" rather than pretend nothing happened.
+      this.run();
+      return { resumed: true, remaining: this.remaining, phase: state.phase };
+    }
+    if (overdue <= AWAY_CLAIM_WINDOW) {
+      const record = this.complete({ recovered: true, silent: true });
+      return { recovered: true, record, overdue, reward: this.lastAward };
     }
     timerState.set({
       ...state,
@@ -306,13 +355,40 @@ export class SessionEngine {
     });
     this.stopTicking();
     this.onTick(this.snapshot());
-    this.emit('lapsed');
+    this.emit('lapsed', { overdue });
+    return { expired: true, overdue };
   }
 
   /** Nudge the engine after the tab regained focus or the machine woke up. */
   checkDrift() {
-    if (timerState.value.status === 'running' && this.remaining <= 0) {
-      this.complete();
+    const state = timerState.value;
+    if (state.status === 'running' && this.remaining <= 0) {
+      const overdue = state.endsAt
+        ? (Date.now() - new Date(state.endsAt).getTime()) / 1000
+        : 0;
+      // A tab restored from the back/forward cache can come back days later.
+      // The same claim window as a reload applies, so a forgotten tab cannot
+      // invent a night of focus.
+      if (overdue > AWAY_CLAIM_WINDOW) {
+        timerState.set({
+          ...state,
+          status: 'idle',
+          endsAt: null,
+          remainingSec: null,
+          plannedSec: null,
+          startedAt: null,
+          focusSec: 0,
+          intent: null,
+          taskId: null,
+        });
+        this.stopTicking();
+        this.onTick(this.snapshot());
+        this.emit('lapsed', { overdue });
+        return;
+      }
+      // A phase that lapsed while the tab slept is settled like a recovery;
+      // one that ended while the screen was merely locked is business as usual.
+      this.complete({ recovered: overdue > 120 });
     } else {
       this.tick(true);
     }
@@ -369,6 +445,19 @@ export class SessionEngine {
   emit(type, detail = {}) {
     this.onEvent({ type, ...detail });
   }
+}
+
+/** Combine two award results into one, for a single celebration. */
+function mergeRewards(a, b) {
+  const base = a || { ink: 0, ember: 0, marks: [] };
+  const extra = b || { ink: 0, ember: 0, marks: [] };
+  return {
+    ink: (base.ink || 0) + (extra.ink || 0),
+    ember: (base.ember || 0) + (extra.ember || 0),
+    marks: [...(base.marks || []), ...(extra.marks || [])],
+    spark: Boolean(base.spark || extra.spark),
+    duplicate: Boolean(base.duplicate && extra.duplicate),
+  };
 }
 
 /* -------------------------------------------------------------------------- */

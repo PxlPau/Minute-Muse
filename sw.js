@@ -8,7 +8,7 @@
    · everything else same-origin — network with cache fallback
    ========================================================================== */
 
-const VERSION = 'v4';
+const VERSION = 'v5';
 const SHELL_CACHE = `mm-shell-${VERSION}`;
 const DATA_CACHE = `mm-data-${VERSION}`;
 const MEDIA_CACHE = `mm-media-${VERSION}`;
@@ -31,6 +31,11 @@ const SHELL_ASSETS = [
   'js/audio.js',
   'js/quotes.js',
   'js/timer.js',
+  'js/curios.js',
+  'js/curio-art.js',
+  'js/rewards.js',
+  'js/soundscapes.js',
+  'js/music.js',
   'js/ui/overlays.js',
   'js/ui/backdrop.js',
   'js/ui/clock.js',
@@ -42,6 +47,9 @@ const SHELL_ASSETS = [
   'js/ui/library.js',
   'js/ui/stats.js',
   'js/ui/settings-panel.js',
+  'js/ui/collection.js',
+  'js/ui/music.js',
+  'js/ui/layout.js',
 ];
 const DATA_ASSETS = ['quotes.json', 'images.json'];
 

@@ -8,6 +8,11 @@
    ========================================================================== */
 
 import { createSignal, dayKey, readStorage, writeStorage } from './util.js';
+import { DEFAULT_VOLUMES, SOUNDSCAPE_IDS } from './soundscapes.js';
+import { CURIO_IDS, MARK_BY_ID } from './curios.js';
+
+/** Panels the user can reorder, hide, and arrange. */
+export const DASHBOARD_PANELS = ['timer', 'tasks', 'sounds', 'music', 'cabinet'];
 
 export const DEFAULT_SETTINGS = {
   /* appearance */
@@ -28,18 +33,27 @@ export const DEFAULT_SETTINGS = {
   chime: true,
   notify: false,
   tabTitle: true,
-  /* ambience — one default for every layer in SOUND_LIST */
-  volumes: {
-    rain: 0.38,
-    fire: 0.3,
-    forest: 0.24,
-    forest2: 0.22,
-    jazz: 0.18,
-    waves: 0.3,
-    brown: 0.22,
-  },
+  /* ambience — one default for every layer in the soundscape catalogue */
+  volumes: { ...DEFAULT_VOLUMES },
   ambienceOn: false,
   lastMix: [], // ids of sounds last left playing
+  soundFavourites: [],
+  /* dashboard — how the room is arranged */
+  accent: 'gold', // gold | ember | verdigris | heather | rose | indigo | moss
+  density: 'comfortable', // comfortable | compact
+  cardStyle: 'glass', // glass | outline | paper
+  railSide: 'left', // left | right
+  readingWidth: 'regular', // narrow | regular | wide
+  panelOrder: [...DASHBOARD_PANELS],
+  hiddenPanels: [],
+  /* listening room */
+  musicVolume: 0.55,
+  musicSource: 'local', // local | spotify | apple
+  spotifyUrl: '',
+  appleUrl: '',
+  duckAmbienceForMusic: true,
+  /* cabinet */
+  rewardToasts: true,
 };
 
 const THEMES = ['lamplight', 'moonlight'];
@@ -47,7 +61,13 @@ const TEXT_SIZES = ['sm', 'md', 'lg'];
 const CLIMATES = ['auto', 'tropical', 'north_winter', 'north_summer', 'south_winter', 'south_summer'];
 const PHASES = ['focus', 'short', 'long'];
 const STATUSES = ['idle', 'running', 'paused'];
-const SOUND_IDS = new Set(Object.keys(DEFAULT_SETTINGS.volumes));
+const SOUND_IDS = new Set(SOUNDSCAPE_IDS);
+const ACCENTS = ['gold', 'ember', 'verdigris', 'heather', 'rose', 'indigo', 'moss'];
+const DENSITIES = ['comfortable', 'compact'];
+const CARD_STYLES = ['glass', 'outline', 'paper'];
+const RAIL_SIDES = ['left', 'right'];
+const READING_WIDTHS = ['narrow', 'regular', 'wide'];
+const MUSIC_SOURCES = ['local', 'spotify', 'apple'];
 
 const clampNumber = (value, min, max, fallback) => {
   const number = typeof value === 'number' || (typeof value === 'string' && value.trim())
@@ -55,6 +75,10 @@ const clampNumber = (value, min, max, fallback) => {
     : Number.NaN;
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, Math.round(number)));
+};
+const clampVolume = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(1, Math.max(0, number)) : fallback;
 };
 const asBoolean = (value, fallback) => (typeof value === 'boolean' ? value : fallback);
 const asText = (value, fallback = '', max = 500) =>
@@ -105,7 +129,38 @@ export function normaliseSettings(raw) {
     volumes,
     ambienceOn: asBoolean(base.ambienceOn, false),
     lastMix,
+    soundFavourites: Array.isArray(base.soundFavourites)
+      ? [...new Set(base.soundFavourites.filter((id) => typeof id === 'string' && SOUND_IDS.has(id)))].slice(0, SOUND_IDS.size)
+      : [],
+    accent: ACCENTS.includes(base.accent) ? base.accent : 'gold',
+    density: DENSITIES.includes(base.density) ? base.density : 'comfortable',
+    cardStyle: CARD_STYLES.includes(base.cardStyle) ? base.cardStyle : 'glass',
+    railSide: RAIL_SIDES.includes(base.railSide) ? base.railSide : 'left',
+    readingWidth: READING_WIDTHS.includes(base.readingWidth) ? base.readingWidth : 'regular',
+    panelOrder: normalisePanelOrder(base.panelOrder),
+    hiddenPanels: normalisePanelList(base.hiddenPanels),
+    musicVolume: clampVolume(base.musicVolume, 0.55),
+    musicSource: MUSIC_SOURCES.includes(base.musicSource) ? base.musicSource : 'local',
+    spotifyUrl: asText(base.spotifyUrl, '', 400),
+    appleUrl: asText(base.appleUrl, '', 400),
+    duckAmbienceForMusic: asBoolean(base.duckAmbienceForMusic, true),
+    rewardToasts: asBoolean(base.rewardToasts, true),
   };
+}
+
+/** Every known panel exactly once: unknown ids dropped, missing ones appended. */
+function normalisePanelOrder(value) {
+  const chosen = Array.isArray(value)
+    ? value.filter((id) => DASHBOARD_PANELS.includes(id))
+    : [];
+  const unique = [...new Set(chosen)];
+  return [...unique, ...DASHBOARD_PANELS.filter((id) => !unique.includes(id))];
+}
+
+function normalisePanelList(value) {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((id) => DASHBOARD_PANELS.includes(id)))]
+    : [];
 }
 
 export const settings = createSignal('settings', DEFAULT_SETTINGS, {
@@ -290,6 +345,7 @@ export function normaliseHistory(list) {
         plannedSec: asSeconds(entry.plannedSec),
         focusSec: asSeconds(entry.focusSec),
         completed: Boolean(entry.completed),
+        recovered: Boolean(entry.recovered),
         task: typeof entry.task === 'string' ? entry.task.slice(0, 180) : null,
         intent: typeof entry.intent === 'string' ? entry.intent.slice(0, 180) : null,
       };
@@ -307,6 +363,7 @@ export function recordSession(session) {
     plannedSec: asSeconds(session.plannedSec),
     focusSec: asSeconds(session.focusSec),
     completed: Boolean(session.completed),
+    recovered: Boolean(session.recovered),
     task: session.task || null,
     intent: session.intent || null,
   };
@@ -348,6 +405,104 @@ export function focusStreak() {
   }
   return streak;
 }
+
+
+/* -------------------------------------------------------------------------- */
+/* The cabinet — currencies, curios, marks                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * `ink` is the soft currency: earned minute by minute, spent on draws.
+ * `ember` is the hard currency: scarce, earned only at milestones, and the only
+ * way to guarantee a rare card or assemble a collection's singular piece.
+ *
+ * `owned` holds one entry per curio (duplicates are converted to ink on the spot,
+ * so the cabinet is a set, not a pile). `ledger` records every award so a
+ * session can never be paid out twice, even across a reload.
+ */
+export const DEFAULT_COLLECTION = {
+  ink: 0,
+  ember: 0,
+  owned: [],
+  ledger: [],
+  marks: [],
+  draws: 0,
+  pity: 0,
+  serial: 0,
+  cycles: 0,
+  inkEarned: 0,
+  emberEarned: 0,
+  daily: { draw: null, shelf: null, spark: null, shelfIds: [] },
+};
+
+const asCount = (value, max = 1e9) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(max, Math.max(0, Math.round(number))) : 0;
+};
+/** Ledger entries are signed: spending is recorded as a negative movement. */
+const asSigned = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(-1e9, Math.min(1e9, Math.round(number))) : 0;
+};
+
+export function normaliseCollection(raw) {
+  const base = isPlainObject(raw) ? raw : {};
+  const seen = new Set();
+  const owned = [];
+  for (const entry of Array.isArray(base.owned) ? base.owned : []) {
+    if (!isPlainObject(entry)) continue;
+    const id = typeof entry.id === 'string' ? entry.id : '';
+    if (!CURIO_IDS.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    owned.push({
+      id,
+      at: asIso(entry.at, new Date().toISOString()),
+      source: asText(entry.source, 'cabinet', 40),
+      serial: asCount(entry.serial, 1e6) || owned.length + 1,
+    });
+  }
+  const ledger = (Array.isArray(base.ledger) ? base.ledger : [])
+    .filter((entry) => isPlainObject(entry) && typeof entry.id === 'string')
+    .slice(0, 2000)
+    .map((entry) => ({
+      id: entry.id.slice(0, 120),
+      ink: asSigned(entry.ink),
+      ember: asSigned(entry.ember),
+      at: asIso(entry.at, new Date().toISOString()),
+      note: asText(entry.note, '', 160),
+    }));
+  const daily = isPlainObject(base.daily) ? base.daily : {};
+  const dayOrNull = (value) => (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
+
+  return {
+    ink: asCount(base.ink),
+    ember: asCount(base.ember),
+    owned,
+    ledger,
+    marks: Array.isArray(base.marks)
+      ? [...new Set(base.marks.filter((id) => typeof id === 'string' && MARK_BY_ID.has(id)))]
+      : [],
+    draws: asCount(base.draws, 1e6),
+    pity: asCount(base.pity, 999),
+    serial: asCount(base.serial, 1e6),
+    cycles: asCount(base.cycles, 1e6),
+    inkEarned: asCount(base.inkEarned),
+    emberEarned: asCount(base.emberEarned),
+    daily: {
+      draw: dayOrNull(daily.draw),
+      shelf: dayOrNull(daily.shelf),
+      spark: dayOrNull(daily.spark),
+      shelfIds: Array.isArray(daily.shelfIds)
+        ? [...new Set(daily.shelfIds.filter((id) => typeof id === 'string' && CURIO_IDS.has(id)))].slice(0, 6)
+        : [],
+    },
+  };
+}
+
+export const collection = createSignal('collection', DEFAULT_COLLECTION, {
+  normalise: normaliseCollection,
+});
+
 
 /* -------------------------------------------------------------------------- */
 /* Timer session persistence                                                  */
@@ -421,12 +576,12 @@ export const clearTimerState = () => timerState.set({ ...DEFAULT_TIMER_STATE });
 /* -------------------------------------------------------------------------- */
 
 // An in-progress `mm.timer` is deliberately ephemeral and is not exported.
-const SIGNALS = { settings, tasks, bookmarks, notes, history };
+const SIGNALS = { settings, tasks, bookmarks, notes, history, collection };
 
 export function exportData() {
   const payload = {
     app: 'minute-muse',
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     data: {},
   };
@@ -460,6 +615,9 @@ export function importData(payload) {
       throw new Error(`That backup has invalid ${key}.`);
     }
   }
+  if (has('collection') && !isPlainObject(data.collection)) {
+    throw new Error('That backup has an invalid cabinet.');
+  }
 
   // CreateSignal normalises every value before it reaches the DOM or storage.
   if (has('settings')) settings.set(data.settings);
@@ -467,6 +625,7 @@ export function importData(payload) {
   if (has('bookmarks')) bookmarks.set(data.bookmarks);
   if (has('notes')) notes.set(data.notes);
   if (has('history')) history.set(data.history);
+  if (has('collection')) collection.set(data.collection);
   return true;
 }
 
